@@ -124,7 +124,7 @@ const SidebarContent = ({
           })}
         </nav>
       </div>
-      <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+      <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 overflow-hidden">
         <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} w-full group relative`}>
           <div
             className="size-9 rounded-full bg-slate-200 dark:bg-slate-700 bg-cover bg-center ring-2 ring-white dark:ring-slate-800 shadow-sm shrink-0 flex items-center justify-center text-slate-500 dark:text-slate-400 font-bold text-sm"
@@ -135,7 +135,7 @@ const SidebarContent = ({
             {!user?.avatarUrl && (user?.displayName?.[0]?.toUpperCase() || 'U')}
           </div>
           {!isCollapsed && (
-            <div className="flex flex-col min-w-0 flex-1">
+            <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
               <span className="text-sm font-bold text-slate-900 dark:text-white truncate">
                 {user?.displayName || 'Usuário'}
               </span>
