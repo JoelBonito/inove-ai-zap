@@ -2,11 +2,19 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useCampaignsContext } from '../hooks/useCampaigns';
 import { NewCampaignModal } from '../components/campaigns/NewCampaignModal';
 import { useUI } from '../hooks/useUI';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const Campaigns = () => {
   const navigate = useNavigate();
   const { isNewCampaignModalOpen, setIsNewCampaignModalOpen } = useUI();
-  const { campaigns, toggleCampaignStatus } = useCampaignsContext();
+  const { campaigns, toggleCampaignStatus, deleteCampaign } = useCampaignsContext();
+
+  // ... (manter funções auxiliares)
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -183,14 +191,47 @@ const Campaigns = () => {
                           </span>
                         </button>
                       )}
-                      <button
-                        className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                        aria-label="Mais acoes"
-                      >
-                        <span className="material-symbols-outlined text-[20px]">
-                          more_vert
-                        </span>
-                      </button>
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors outline-none focus:ring-2 focus:ring-primary/20"
+                            aria-label="Mais ações"
+                          >
+                            <span className="material-symbols-outlined text-[20px]">
+                              more_vert
+                            </span>
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-[160px]">
+                          <DropdownMenuItem onClick={() => navigate(`/campaigns/${camp.id}`)}>
+                            <span className="material-symbols-outlined text-[18px] mr-2">visibility</span>
+                            Ver detalhes
+                          </DropdownMenuItem>
+
+                          {(camp.status === 'Enviando' || camp.status === 'Pausado') && (
+                            <DropdownMenuItem onClick={() => toggleCampaignStatus(camp.id, camp.status)}>
+                              <span className="material-symbols-outlined text-[18px] mr-2">
+                                {camp.status === 'Enviando' ? 'pause' : 'play_arrow'}
+                              </span>
+                              {camp.status === 'Enviando' ? 'Pausar' : 'Retomar'}
+                            </DropdownMenuItem>
+                          )}
+
+                          <DropdownMenuItem
+                            className="text-red-600 dark:text-red-400 focus:text-red-700 focus:bg-red-50 dark:focus:bg-red-900/20"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (window.confirm('Tem certeza que deseja excluir esta campanha?')) {
+                                deleteCampaign(camp.id);
+                              }
+                            }}
+                          >
+                            <span className="material-symbols-outlined text-[18px] mr-2">delete</span>
+                            Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </td>
                 </tr>

@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Campaign, CampaignPauseInfo } from '../types';
 import { db, functions } from '../lib/firebase';
-import { collection, onSnapshot, query, orderBy, doc, updateDoc, Timestamp, where, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc, updateDoc, Timestamp, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './useAuth';
@@ -14,6 +14,7 @@ interface UseCampaignsReturn {
     resumePausedCampaigns: () => void;
     addCampaign: (data: Partial<Campaign>) => void;
     toggleCampaignStatus: (id: string, currentStatus: string) => void;
+    deleteCampaign: (id: string) => Promise<void>;
     isProcessing: boolean;
     error: string | null;
 }
@@ -210,6 +211,22 @@ export function useCampaigns(): UseCampaignsReturn {
         }
     }, []);
 
+    /**
+     * Exclui campanha
+     */
+    const deleteCampaign = useCallback(async (id: string) => {
+        setIsProcessing(true);
+        setError(null);
+        try {
+            await deleteDoc(doc(db, 'campaigns', id));
+        } catch (err) {
+            setError('Erro ao excluir campanha.');
+            console.error(err);
+        } finally {
+            setIsProcessing(false);
+        }
+    }, []);
+
     return {
         campaigns: campaignsQuery.data,
         activeCampaigns,
@@ -218,6 +235,7 @@ export function useCampaigns(): UseCampaignsReturn {
         resumePausedCampaigns,
         addCampaign,
         toggleCampaignStatus,
+        deleteCampaign,
         isProcessing,
         error,
     };
