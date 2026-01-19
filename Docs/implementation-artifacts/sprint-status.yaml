@@ -1,0 +1,88 @@
+# generated: 2026-01-14
+# project: inove-ai-zap
+# project_key: IAZ
+# tracking_system: file-system
+# story_location: Docs/implementation-artifacts
+# last_updated: 2026-01-14 16:55
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created, ready for development
+#   - in-progress: Developer actively working on implementation
+#   - review: Implementation complete, ready for review
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Mark epic as 'in-progress' when starting work on its first story
+# - SM typically creates next story ONLY after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then Dev runs code-review (fresh context, ideally different LLM)
+
+generated: 2026-01-14
+project: inove-ai-zap
+project_key: IAZ
+tracking_system: file-system
+story_location: Docs/implementation-artifacts
+
+development_status:
+  epic-1: done
+  1-1-setup-do-monorepo-e-infraestrutura-base: done
+  1-2-autenticacao-de-usuario-login-logout: done
+  1-3-criacao-manual-de-clientes-admin-only: done
+  1-4-cadastro-de-secretaria-com-permissoes-restritas: done
+  epic-1-retrospective: optional
+
+  epic-2: done  # UI completa, aguardando integração backend
+  2-1-exibicao-do-qr-code-para-conexao: done
+  2-2-exibicao-do-status-da-instancia-em-tempo-real: done
+  2-3-deteccao-automatica-de-perda-de-conexao: done  # UI + lógica de pausa implementada
+  epic-2-retrospective: optional
+  
+  # Subtarefas de Integração Backend (Epic 2)
+  # Documentação: docs/03-Implementacao/EPIC-2-SUBTAREFAS-INTEGRACAO.md
+  int-2-1-integracao-qrcode-uazapi: backlog  # Cloud Function + chamada real
+  int-2-2-status-tempo-real-firestore: backlog  # onSnapshot + webhooks
+  int-2-3-health-check-endpoint: backlog  # Endpoint para Worker
+
+  epic-3: done
+  3-1-importacao-de-contatos-via-csv-excel: done
+  3-2-sanitizacao-automatica-de-telefones: done
+  3-3-crud-de-categorias-tags: done
+  3-4-atribuicao-de-categorias-a-contatos: done
+  3-5-crud-de-contatos-individuais: done
+  epic-3-retrospective: optional
+
+  epic-4: ready-for-dev
+  4-1-editor-de-mensagem-de-texto: backlog
+  4-2-suporte-a-spintax-manual-com-validacao: backlog
+  4-3-geracao-de-spintax-assistido-ia: backlog
+  4-4-upload-de-imagem-para-campanha: backlog
+  4-5-preview-da-mensagem-antes-do-disparo: backlog
+  epic-4-retrospective: optional
+
+  epic-5: backlog
+  5-1-selecao-de-audiencia-categorias-contatos-avulsos: backlog
+  5-2-agendamento-de-data-e-hora-do-disparo: review
+  5-3-dashboard-de-progresso-em-tempo-real: in-progress
+  5-4-historico-de-campanhas-e-resultados: backlog
+  epic-5-retrospective: optional
+
+  epic-6: backlog
+  6-1-worker-de-envio-em-background-fire-and-forget: backlog
+  6-2-delays-aleatorios-anti-ban: backlog
+  6-3-pausas-longas-automaticas: backlog
+  6-4-pausa-automatica-ao-perder-conexao: backlog
+  6-5-registro-de-status-por-contato: backlog
+  6-6-health-check-pre-envio: backlog
+  epic-6-retrospective: optional

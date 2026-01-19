@@ -1,0 +1,29 @@
+{
+  "name": "inove-ai-zap",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "bmad:refresh": "bmad-method install -f -i codex",
+    "bmad:list": "bmad-method list:agents",
+    "bmad:validate": "bmad-method validate"
+  },
+  "dependencies": {
+    "react-dom": "^19.2.3",
+    "react": "^19.2.3",
+    "react-router-dom": "^7.12.0",
+    "firebase": "^10.0.0",
+    "clsx": "^2.0.0",
+    "tailwind-merge": "^2.0.0",
+    "date-fns": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}

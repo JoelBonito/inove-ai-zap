@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html class="light" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Configurações do Sistema - Inove-AI Zap</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#20df6c",
+                        "primary-dark": "#18a852",
+                        "background-light": "#f0f2f5", // WhatsApp web style bg
+                        "background-dark": "#112117",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#202c33",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #374151;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white overflow-hidden">
+<div class="flex h-screen w-full">
+<aside class="w-64 flex-shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-surface-dark flex flex-col justify-between transition-all duration-300">
+<div class="flex flex-col gap-6 p-6">
+<div class="flex items-center gap-3">
+<div class="flex items-center justify-center size-10 rounded-xl bg-primary/20 text-primary">
+<span class="material-symbols-outlined text-3xl">bolt</span>
+</div>
+<div class="flex flex-col">
+<h1 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white">Inove-AI</h1>
+<p class="text-xs font-medium text-primary">Automação WhatsApp</p>
+</div>
+</div>
+<nav class="flex flex-col gap-2">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">dashboard</span>
+<span class="text-sm font-medium">Painel</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">send</span>
+<span class="text-sm font-medium">Campanhas</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">contacts</span>
+<span class="text-sm font-medium">Contatos</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">smart_toy</span>
+<span class="text-sm font-medium">Automação</span>
+</a>
+<div class="h-px bg-slate-100 dark:bg-slate-800 my-2"></div>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/15 text-green-800 dark:text-green-100 group transition-colors" href="#">
+<span class="material-symbols-outlined text-primary group-hover:scale-110 transition-transform">settings</span>
+<span class="text-sm font-semibold">Configurações</span>
+</a>
+</nav>
+</div>
+<div class="p-4 border-t border-slate-100 dark:border-slate-800">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="text-sm font-medium">Sair</span>
+</a>
+</div>
+</aside>
+<main class="flex-1 flex flex-col h-full overflow-hidden relative">
+<header class="h-16 flex items-center justify-between px-8 bg-white dark:bg-surface-dark border-b border-slate-200 dark:border-slate-800 flex-shrink-0 z-10">
+<div class="flex items-center w-full max-w-md">
+<div class="relative w-full">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 material-symbols-outlined text-[20px]">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border-none rounded-lg text-sm text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-slate-900 transition-all placeholder:text-slate-400" placeholder="Pesquisar..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<button class="relative text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-0 right-0 size-2.5 bg-red-500 rounded-full border-2 border-white dark:border-surface-dark"></span>
+</button>
+<div class="flex items-center gap-3 pl-6 border-l border-slate-200 dark:border-slate-700">
+<div class="flex flex-col items-end">
+<span class="text-sm font-bold text-slate-900 dark:text-white">Alex Morgan</span>
+<span class="text-xs text-slate-500 dark:text-slate-400">Líder de Marketing</span>
+</div>
+<div class="size-9 rounded-full bg-slate-200 dark:bg-slate-700 bg-cover bg-center ring-2 ring-white dark:ring-slate-800 shadow-sm" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBqA7lgl7knnTWLEjpYJx1IIZP6588uJuI1q-NHWBkFIJMlDNbsL3cZymzQIyHXl1yRqqijGbhU8qIvHZHgRKcI_3Gfesw-aE8iD0i6SEC8b1zwdOjSu9HyZy61cNEMRGFaYR2vzyjh_wyw4lW5yYBNohVXsZysfjn36ZWW9pN7QNWlg5r6HWpynPAxXNX9xiBpqmeI0IAk78DzkesYpyeAw1eQG_xVXbUJqtqWx1BZ851Atppu9Eadt_oC2lwMGhyyHFwkfwXv2dqf');"></div>
+</div>
+</div>
+</header>
+<div class="flex-1 overflow-y-auto bg-background-light dark:bg-background-dark">
+<div class="max-w-4xl mx-auto p-8 flex flex-col gap-8">
+<div class="flex flex-col gap-2">
+<h2 class="text-2xl font-black tracking-tight text-slate-900 dark:text-white">Configurações</h2>
+<p class="text-slate-500 dark:text-slate-400 text-sm">Gerencie os detalhes da sua conta e preferências do sistema.</p>
+</div>
+<div class="border-b border-slate-200 dark:border-slate-700">
+<nav aria-label="Tabs" class="-mb-px flex space-x-8">
+<a class="border-primary text-primary whitespace-nowrap border-b-2 py-4 px-1 text-sm font-semibold flex items-center gap-2" href="#">
+<span class="material-symbols-outlined text-[20px]">person</span>
+                            Perfil
+                        </a>
+<a class="border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium flex items-center gap-2" href="#">
+<span class="material-symbols-outlined text-[20px]">api</span>
+                            API
+                        </a>
+<a class="border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium flex items-center gap-2" href="#">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+                            Notificações
+                        </a>
+<a class="border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium flex items-center gap-2" href="#">
+<span class="material-symbols-outlined text-[20px]">lock</span>
+                            Segurança
+                        </a>
+</nav>
+</div>
+<div class="flex flex-col gap-6">
+<div class="bg-white dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+<div class="p-6 border-b border-slate-100 dark:border-slate-800">
+<h3 class="text-lg font-bold text-slate-900 dark:text-white">Informações do Perfil</h3>
+<p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Atualize os detalhes pessoais e sua função no sistema.</p>
+</div>
+<div class="p-6 space-y-6">
+<div class="flex items-center gap-6">
+<div class="relative">
+<div class="size-20 rounded-full bg-slate-200 dark:bg-slate-700 bg-cover bg-center ring-4 ring-slate-50 dark:ring-slate-800" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBqA7lgl7knnTWLEjpYJx1IIZP6588uJuI1q-NHWBkFIJMlDNbsL3cZymzQIyHXl1yRqqijGbhU8qIvHZHgRKcI_3Gfesw-aE8iD0i6SEC8b1zwdOjSu9HyZy61cNEMRGFaYR2vzyjh_wyw4lW5yYBNohVXsZysfjn36ZWW9pN7QNWlg5r6HWpynPAxXNX9xiBpqmeI0IAk78DzkesYpyeAw1eQG_xVXbUJqtqWx1BZ851Atppu9Eadt_oC2lwMGhyyHFwkfwXv2dqf');"></div>
+<button class="absolute bottom-0 right-0 p-1.5 bg-primary text-white rounded-full hover:bg-primary-dark transition-colors shadow-sm">
+<span class="material-symbols-outlined text-[16px] block">edit</span>
+</button>
+</div>
+<div>
+<h4 class="text-base font-semibold text-slate-900 dark:text-white">Sua Foto</h4>
+<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Isso será exibido no seu perfil.</p>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="space-y-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300" for="fullName">Nome Completo</label>
+<input class="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:border-primary focus:ring-primary shadow-sm text-sm" id="fullName" type="text" value="Alex Morgan"/>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300" for="email">Endereço de E-mail</label>
+<div class="relative">
+<span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+<span class="material-symbols-outlined text-[18px]">mail</span>
+</span>
+<input class="w-full pl-10 rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:border-primary focus:ring-primary shadow-sm text-sm" id="email" type="email" value="alex.morgan@inove-ai.com"/>
+</div>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300" for="role">Função / Cargo</label>
+<div class="relative">
+<select class="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:border-primary focus:ring-primary shadow-sm text-sm appearance-none" id="role">
+<option selected="" value="owner">Dono</option>
+<option value="secretary">Secretária</option>
+<option value="manager">Gerente</option>
+</select>
+<span class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-500">
+<span class="material-symbols-outlined text-[20px]">expand_more</span>
+</span>
+</div>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300" for="phone">Telefone</label>
+<input class="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:border-primary focus:ring-primary shadow-sm text-sm" id="phone" type="text" value="+55 (11) 98765-4321"/>
+</div>
+</div>
+</div>
+<div class="px-6 py-4 bg-slate-50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
+<button class="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white transition-colors">Cancelar</button>
+<button class="px-4 py-2 text-sm font-medium text-white bg-slate-900 dark:bg-primary rounded-lg hover:bg-slate-800 dark:hover:bg-primary-dark transition-colors shadow-sm">Salvar Alterações</button>
+</div>
+</div>
+<div class="bg-white dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden" id="api-section">
+<div class="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+<div>
+<h3 class="text-lg font-bold text-slate-900 dark:text-white">Credenciais da API</h3>
+<p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Gerencie chaves de acesso para integração externa.</p>
+</div>
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-800">
+<span class="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+<span class="text-xs font-bold">Ativo</span>
+</span>
+</div>
+<div class="p-6 space-y-6">
+<div class="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 flex gap-3">
+<span class="material-symbols-outlined text-blue-600 dark:text-blue-400 flex-shrink-0">info</span>
+<p class="text-sm text-blue-800 dark:text-blue-200">
+                                    Mantenha seu token seguro. Se você suspeitar que ele foi comprometido, gere um novo imediatamente.
+                                </p>
+</div>
+<div class="space-y-4">
+<div class="space-y-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">ID da Instância</label>
+<div class="flex gap-2">
+<div class="relative flex-1">
+<input class="w-full font-mono text-sm rounded-lg border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 focus:ring-0 focus:border-slate-300" readonly="" type="text" value="inst_8293_vendas_01"/>
+</div>
+<button class="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-500 hover:text-primary hover:border-primary dark:hover:border-primary transition-all group" title="Copiar">
+<span class="material-symbols-outlined text-[20px] group-hover:scale-110 transition-transform">content_copy</span>
+</button>
+</div>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Token de Acesso</label>
+<div class="flex gap-2">
+<div class="relative flex-1 group">
+<input class="w-full font-mono text-sm rounded-lg border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 focus:ring-0 focus:border-slate-300 tracking-widest" readonly="" type="password" value="wh_1234567890abcdefghijklmnopqrstuvwxyz"/>
+<button class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+</div>
+<button class="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-500 hover:text-primary hover:border-primary dark:hover:border-primary transition-all group" title="Copiar">
+<span class="material-symbols-outlined text-[20px] group-hover:scale-110 transition-transform">content_copy</span>
+</button>
+</div>
+<p class="text-xs text-slate-400">O token expira em 30 dias.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<footer class="mt-auto py-6 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-400">
+<p>© 2024 Inove-AI Inc. Todos os direitos reservados.</p>
+</footer>
+</div>
+</main>
+</div>
+
+</body></html>

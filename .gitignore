@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Build outputs
+dist/
+build/
+functions/lib/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+functions/service-account.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage/
+
+# BMAD (local only)
+.bmad-local/
+_bmad/
+
+# Misc
+*.tsbuildinfo
+.eslintcache
+
+# Vite cache
+web/.vite/
+.vite/
+
+# Web bundles (generated)
+web-bundles/
