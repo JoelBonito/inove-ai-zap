@@ -494,8 +494,13 @@ export function useContacts(): UseContactsReturn {
         if (!user?.id) return;
 
         try {
+            // Remove campos undefined (Firestore não aceita)
+            const cleanData = Object.fromEntries(
+                Object.entries(contactData).filter(([, v]) => v !== undefined)
+            );
+
             await addDoc(collection(db, 'clients', user.id, 'contacts'), {
-                ...contactData,
+                ...cleanData,
                 initials: generateInitials(contactData.name),
                 color: generateColor(contactData.name),
                 createdAt: serverTimestamp(),
@@ -513,8 +518,13 @@ export function useContacts(): UseContactsReturn {
     const updateContact = useCallback(async (id: string, data: Partial<Contact>) => {
         if (!user?.id) return;
         try {
+            // Remove campos undefined (Firestore não aceita)
+            const cleanData = Object.fromEntries(
+                Object.entries(data).filter(([, v]) => v !== undefined)
+            );
+
             await updateDoc(doc(db, 'clients', user.id, 'contacts', id), {
-                ...data,
+                ...cleanData,
                 updatedAt: serverTimestamp()
             });
         } catch (err) {

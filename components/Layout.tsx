@@ -72,11 +72,10 @@ const SidebarContent = ({
         </div>
 
         {showCollapseToggle && (
-          <div className="relative -mx-4">
-            <hr className="border-slate-200 dark:border-slate-700 mx-4" />
+          <div className="flex justify-end px-2 py-1">
             <button
               onClick={onToggleCollapse}
-              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 size-7 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary shadow-sm transition-all hover:scale-110 active:scale-95 z-30"
+              className="size-7 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary hover:bg-white dark:hover:bg-slate-700 shadow-sm transition-all hover:scale-110 active:scale-95"
               title={isCollapsed ? "Expandir Menu" : "Recolher Menu"}
               aria-label={isCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
             >
@@ -124,46 +123,57 @@ const SidebarContent = ({
           })}
         </nav>
       </div>
-      <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 overflow-hidden">
-        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} w-full group relative`}>
-          <div
-            className="size-9 rounded-full bg-slate-200 dark:bg-slate-700 bg-cover bg-center ring-2 ring-white dark:ring-slate-800 shadow-sm shrink-0 flex items-center justify-center text-slate-500 dark:text-slate-400 font-bold text-sm"
-            style={user?.avatarUrl ? {
-              backgroundImage: `url('${user.avatarUrl}')`,
-            } : undefined}
-          >
-            {!user?.avatarUrl && (user?.displayName?.[0]?.toUpperCase() || 'U')}
-          </div>
-          {!isCollapsed && (
-            <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
-              <span className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                {user?.displayName || 'Usuário'}
-              </span>
-              <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                {user?.email || ''}
-              </span>
-            </div>
-          )}
-          {!isCollapsed && (
-            <button
-              onClick={async () => {
-                await logout();
-                navigate('/login');
-              }}
-              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors shrink-0"
-              title="Sair"
-              aria-label="Sair"
+      {/* Footer da Sidebar - 3 linhas */}
+      <div className="border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+        {/* Linha 1: Usuário */}
+        <div className={`p-3 ${isCollapsed ? 'flex justify-center' : ''}`}>
+          <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} group relative`}>
+            <div
+              className="size-9 rounded-full bg-slate-200 dark:bg-slate-700 bg-cover bg-center ring-2 ring-white dark:ring-slate-800 shadow-sm shrink-0 flex items-center justify-center text-slate-500 dark:text-slate-400 font-bold text-sm"
+              style={user?.avatarUrl ? {
+                backgroundImage: `url('${user.avatarUrl}')`,
+              } : undefined}
             >
-              <span className="material-symbols-outlined text-[20px]">logout</span>
-            </button>
-          )}
-
-          {isCollapsed && (
-            <div className="absolute left-full ml-4 px-2 py-1 bg-slate-900 text-white text-xs rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50 flex flex-col gap-0.5">
-              <span className="font-bold">{user?.displayName || 'Usuário'}</span>
-              <span className="text-[10px] text-slate-400">{user?.email || ''}</span>
+              {!user?.avatarUrl && (user?.displayName?.[0]?.toUpperCase() || 'U')}
             </div>
-          )}
+            {!isCollapsed && (
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                  {user?.displayName || 'Usuário'}
+                </span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                  {user?.email || ''}
+                </span>
+              </div>
+            )}
+            {isCollapsed && (
+              <div className="absolute left-full ml-4 px-2 py-1 bg-slate-900 text-white text-xs rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50 flex flex-col gap-0.5">
+                <span className="font-bold">{user?.displayName || 'Usuário'}</span>
+                <span className="text-[10px] text-slate-400">{user?.email || ''}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Linha 2: Toggle Dark/Light Mode */}
+        <div className={`px-3 pb-2 ${isCollapsed ? 'flex justify-center' : ''}`}>
+          <ThemeToggle variant={isCollapsed ? 'icon' : 'full'} />
+        </div>
+
+        {/* Linha 3: Botão Sair */}
+        <div className={`px-3 pb-3 ${isCollapsed ? 'flex justify-center' : ''}`}>
+          <button
+            onClick={async () => {
+              await logout();
+              navigate('/login');
+            }}
+            className={`flex items-center gap-2 text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors ${isCollapsed ? 'p-2' : 'px-3 py-2 w-full'}`}
+            title="Sair"
+            aria-label="Sair da conta"
+          >
+            <span className="material-symbols-outlined text-[20px]">logout</span>
+            {!isCollapsed && <span className="text-sm font-medium">Sair</span>}
+          </button>
         </div>
       </div>
     </div>
@@ -247,7 +257,6 @@ const Header = () => {
           <StatusIndicator status={status} size="sm" showLabel={true} />
         </button>
 
-        <ThemeToggle />
         <button className="relative p-2 text-slate-400 hover:text-primary dark:hover:text-white transition-colors rounded-full hover:bg-slate-50 dark:hover:bg-slate-800" aria-label="Notificacoes">
           <span className="material-symbols-outlined">notifications</span>
           <span className="absolute top-1 right-2 size-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
@@ -269,11 +278,13 @@ export const Layout = () => {
 
   return (
     <div className="flex h-screen w-full">
-      <aside className={`${isSidebarCollapsed ? 'w-20' : 'w-[230px]'} hidden lg:flex flex-shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-surface-dark transition-all duration-300 ease-in-out`}>
-        <SidebarContent
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        />
+      <aside className={`${isSidebarCollapsed ? 'w-20' : 'w-[230px]'} hidden lg:flex flex-shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-surface-dark transition-all duration-300 ease-in-out overflow-hidden`}>
+        <div className={`${isSidebarCollapsed ? 'w-20' : 'w-[230px]'} flex flex-col h-full`}>
+          <SidebarContent
+            isCollapsed={isSidebarCollapsed}
+            onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          />
+        </div>
       </aside>
       <Sheet open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
         <SheetContent className="p-0">
