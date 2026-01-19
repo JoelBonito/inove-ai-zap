@@ -281,10 +281,10 @@ const Contacts = () => {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Contatos', value: filteredContacts.length.toLocaleString('pt-BR'), change: '+12%', color: 'emerald' },
-          { label: 'Novos Leads (Mês)', value: '843', change: '+5%', color: 'emerald' },
-          { label: 'Clientes Ativos', value: '4,200', note: '33% do total' },
-          { label: 'Opt-out / Bloqueios', value: '152', change: '+2', color: 'red' },
+          { label: 'Total Contatos', value: filteredContacts.length.toLocaleString('pt-BR') },
+          { label: 'Novos Leads (Mês)', value: '-', note: 'Em breve' },
+          { label: 'Clientes Ativos', value: '-', note: 'Em breve' },
+          { label: 'Opt-out / Bloqueios', value: '-', note: 'Em breve' },
         ].map((stat, i) => (
           <div
             key={i}
@@ -297,16 +297,6 @@ const Contacts = () => {
               <span className="text-2xl font-bold text-slate-900 dark:text-white">
                 {stat.value}
               </span>
-              {stat.change && (
-                <span
-                  className={`text-xs font-medium text-${stat.color}-500 flex items-center`}
-                >
-                  <span className="material-symbols-outlined text-[14px]">
-                    arrow_upward
-                  </span>{' '}
-                  {stat.change}
-                </span>
-              )}
               {stat.note && (
                 <span className="text-xs font-medium text-slate-400">
                   {stat.note}
