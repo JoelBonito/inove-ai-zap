@@ -428,17 +428,6 @@ const Contacts = () => {
 
             {/* Actions Buttons Group - FULLY WRAPPED */}
             <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto justify-end">
-              {/* Botão Novo Contato */}
-              <button
-                onClick={handleOpenNewContact}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary-dark transition-colors"
-              >
-                <span className="material-symbols-outlined text-[18px]">
-                  person_add
-                </span>
-                <span className="hidden sm:inline">Novo Contato</span>
-              </button>
-
               {/* Botão Importar CSV */}
               <button
                 onClick={handleOpenImportModal}
