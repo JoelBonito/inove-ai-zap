@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Contact, Category } from '../../types';
 import { sanitizePhone } from '../../hooks/useContacts';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './dialog';
+import { CATEGORY_COLOR_CLASSES } from '../../lib/categoryColors';
 
 interface ContactModalProps {
     isOpen: boolean;
@@ -94,29 +96,18 @@ export const ContactModal: React.FC<ContactModalProps> = ({
         );
     };
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <div
-                className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-                onClick={onClose}
-            />
-
-            {/* Modal */}
-            <div className="relative bg-white dark:bg-surface-dark rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-                {/* Header */}
-                <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex-shrink-0">
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+            <DialogContent className="max-w-lg p-0 overflow-hidden flex flex-col max-h-[90vh]">
+                <DialogHeader className="p-6 border-b border-slate-100 dark:border-slate-800">
+                    <DialogTitle>
                         {isEditMode ? 'Editar Contato' : 'Novo Contato'}
-                    </h2>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    </DialogTitle>
+                    <DialogDescription>
                         {isEditMode ? 'Atualize as informações do contato' : 'Adicione um novo contato manualmente'}
-                    </p>
-                </div>
+                    </DialogDescription>
+                </DialogHeader>
 
-                {/* Form Scrollable */}
                 <div className="overflow-y-auto p-6 space-y-5">
                     <form id="contact-form" onSubmit={handleSubmit} className="space-y-5">
                         {/* Nome */}
@@ -130,8 +121,8 @@ export const ContactModal: React.FC<ContactModalProps> = ({
                                 onChange={(e) => setName(e.target.value)}
                                 placeholder="Ex: João da Silva"
                                 className={`w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent transition-all ${errors.name
-                                        ? 'border-red-300 focus:ring-red-200'
-                                        : 'border-slate-200 dark:border-slate-700'
+                                    ? 'border-red-300 focus:ring-red-200'
+                                    : 'border-slate-200 dark:border-slate-700'
                                     }`}
                             />
                             {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name}</p>}
@@ -148,8 +139,8 @@ export const ContactModal: React.FC<ContactModalProps> = ({
                                 onChange={(e) => setPhone(e.target.value)}
                                 placeholder="Ex: 11999998888"
                                 className={`w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent transition-all ${errors.phone
-                                        ? 'border-red-300 focus:ring-red-200'
-                                        : 'border-slate-200 dark:border-slate-700'
+                                    ? 'border-red-300 focus:ring-red-200'
+                                    : 'border-slate-200 dark:border-slate-700'
                                     }`}
                             />
                             {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone}</p>}
@@ -167,8 +158,8 @@ export const ContactModal: React.FC<ContactModalProps> = ({
                                 onChange={(e) => setEmail(e.target.value)}
                                 placeholder="Ex: joao@email.com"
                                 className={`w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent transition-all ${errors.email
-                                        ? 'border-red-300 focus:ring-red-200'
-                                        : 'border-slate-200 dark:border-slate-700'
+                                    ? 'border-red-300 focus:ring-red-200'
+                                    : 'border-slate-200 dark:border-slate-700'
                                     }`}
                             />
                             {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
@@ -185,6 +176,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({
                                 <div className="flex flex-wrap gap-2">
                                     {categories.map((cat) => {
                                         const isSelected = selectedCategoryIds.includes(cat.id);
+                                        const colorClasses = CATEGORY_COLOR_CLASSES[cat.color];
                                         return (
                                             <button
                                                 key={cat.id}
@@ -193,12 +185,13 @@ export const ContactModal: React.FC<ContactModalProps> = ({
                                                 className={`
                           inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all
                           ${isSelected
-                                                        ? `bg-${cat.color}-100 dark:bg-${cat.color}-900/40 text-${cat.color}-800 dark:text-${cat.color}-200 border-${cat.color}-200 dark:border-${cat.color}-700 ring-1 ring-${cat.color}-500/30`
-                                                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
-                                                    }
+                                ? `${colorClasses.soft} ring-1 ${colorClasses.ring}`
+                                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                            }
                         `}
+                                                aria-pressed={isSelected}
                                             >
-                                                <span className={`size-2 rounded-full bg-${cat.color}-500`} />
+                                                <span className={`size-2 rounded-full ${colorClasses.dot}`} />
                                                 {cat.name}
                                                 {isSelected && <span className="material-symbols-outlined text-[14px] ml-0.5">check</span>}
                                             </button>
@@ -210,8 +203,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({
                     </form>
                 </div>
 
-                {/* Footer */}
-                <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-3 flex-shrink-0 bg-slate-50/50 dark:bg-slate-800/20">
+                <DialogFooter className="p-6 border-t border-slate-100 dark:border-slate-800 flex-shrink-0 bg-slate-50/50 dark:bg-slate-800/20">
                     <button
                         type="button"
                         onClick={onClose}
@@ -234,8 +226,8 @@ export const ContactModal: React.FC<ContactModalProps> = ({
                         )}
                         {isEditMode ? 'Salvar Alterações' : 'Criar Contato'}
                     </button>
-                </div>
-            </div>
-        </div>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 };

@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { SmartDropzone } from './SmartDropzone';
 import { ImportResult, ParseProgress } from '../../hooks/useContacts';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './dialog';
 
 interface ImportContactsModalProps {
     isOpen: boolean;
@@ -49,37 +50,25 @@ export const ImportContactsModal: React.FC<ImportContactsModalProps> = ({
         onClose();
     }, [onConfirmImport, selectedCategory, onClose]);
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <div
-                className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-                onClick={onClose}
-            />
-
-            {/* Modal */}
-            <div className="relative bg-white dark:bg-surface-dark rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-                {/* Header */}
-                <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+            <DialogContent className="max-w-2xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
+                <DialogHeader className="p-6 border-b border-slate-100 dark:border-slate-800 flex flex-row items-center justify-between space-y-0">
                     <div>
-                        <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                            Importar Contatos
-                        </h2>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                        <DialogTitle>Importar Contatos</DialogTitle>
+                        <DialogDescription className="mt-1">
                             Arraste um arquivo CSV ou Excel com sua lista de contatos
-                        </p>
+                        </DialogDescription>
                     </div>
                     <button
                         onClick={onClose}
                         className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                        aria-label="Fechar modal"
                     >
                         <span className="material-symbols-outlined">close</span>
                     </button>
-                </div>
+                </DialogHeader>
 
-                {/* Content */}
                 <div className="p-6 overflow-y-auto flex-1">
                     {!importResult ? (
                         <>
@@ -261,8 +250,7 @@ export const ImportContactsModal: React.FC<ImportContactsModalProps> = ({
                     )}
                 </div>
 
-                {/* Footer */}
-                <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-3">
+                <DialogFooter className="p-6 border-t border-slate-100 dark:border-slate-800">
                     <button
                         onClick={onClose}
                         className="px-4 py-2.5 text-slate-600 dark:text-slate-300 font-medium rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
@@ -280,9 +268,9 @@ export const ImportContactsModal: React.FC<ImportContactsModalProps> = ({
                             Importar {importResult.valid} contatos
                         </button>
                     )}
-                </div>
-            </div>
-        </div>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 };
 

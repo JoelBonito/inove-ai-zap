@@ -1,7 +1,8 @@
 import { onRequest } from 'firebase-functions/v2/https';
+import { logger } from 'firebase-functions/v2';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as admin from 'firebase-admin';
-import fetch from 'node-fetch';
+import { z } from 'zod';
 
 if (!admin.apps.length) {
     admin.initializeApp();
@@ -35,6 +36,26 @@ const CONFIG = {
     TYPING_DURATION_MIN: 2,
     TYPING_DURATION_MAX: 5,
 };
+
+const isEmulator = process.env.FUNCTIONS_EMULATOR === 'true' || Boolean(process.env.FIREBASE_EMULATOR_HUB);
+const workerPayloadSchema = z.object({
+    campaignId: z.string().min(1),
+    action: z.enum(['START', 'CONTINUE']),
+    batchIndex: z.number().int().nonnegative().optional(),
+}).passthrough();
+
+function validateTaskToken(reqToken?: string | string[]) {
+    const expectedToken = process.env.CLOUD_TASKS_TOKEN;
+    if (!expectedToken) {
+        return isEmulator;
+    }
+
+    if (Array.isArray(reqToken)) {
+        return reqToken.some((token) => token === expectedToken);
+    }
+
+    return reqToken === expectedToken;
+}
 
 // ==================== HELPERS ANTI-BAN ====================
 
@@ -103,7 +124,7 @@ async function getInstanceConfig(ownerId: string): Promise<UazapiInstance | null
     const data = doc.data();
     return {
         apiUrl: data?.apiUrl || '',
-        apiKey: data?.apikey || '',
+        apiKey: data?.apiKey || data?.apikey || '',
     };
 }
 
@@ -130,12 +151,12 @@ async function syncContactToPhonebook(
         });
 
         if (!response.ok) {
-            console.warn(`[SyncContact] Failed for ${phone}: ${response.status}`);
+            logger.warn(`[SyncContact] Falha para ${phone}: ${response.status}`);
             return false;
         }
         return true;
     } catch (err) {
-        console.error('[SyncContact] Error:', err);
+        logger.error('[SyncContact] Erro', err);
         return false;
     }
 }
@@ -167,7 +188,7 @@ async function simulateTyping(
 
     } catch (err) {
         // Não é crítico, apenas logar
-        console.warn('[SimulateTyping] Error:', err);
+        logger.warn('[SimulateTyping] Erro', err);
     }
 }
 
@@ -200,8 +221,9 @@ async function sendTextMessage(
         }
 
         return { success: true, messageId: result.key?.id };
-    } catch (err: any) {
-        return { success: false, error: err.message };
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        return { success: false, error: message };
     }
 }
 
@@ -214,33 +236,24 @@ interface ContactToSend {
 }
 
 /**
- * Resolve a lista de contatos a enviar baseado nos targets da campanha
+ * Resolve a lista de IDs de contatos a enviar baseado nos targets da campanha
  */
-async function resolveAudience(
+async function resolveAudienceIds(
     ownerId: string,
     targetCategoryIds: string[],
     targetContactIds: string[]
-): Promise<ContactToSend[]> {
+): Promise<string[]> {
     const firestore = admin.firestore();
     const contactsRef = firestore.collection('clients').doc(ownerId).collection('contacts');
-    const contacts: ContactToSend[] = [];
+    const contactIds: string[] = [];
     const seenIds = new Set<string>();
 
     // 1. Contatos explícitos (IDs diretos - Story 5.1 / 5.5)
     if (targetContactIds && targetContactIds.length > 0) {
         for (const id of targetContactIds) {
             if (seenIds.has(id)) continue;
-
-            const doc = await contactsRef.doc(id).get();
-            if (doc.exists) {
-                const data = doc.data();
-                contacts.push({
-                    id: doc.id,
-                    name: data?.name || 'Sem Nome',
-                    phone: data?.phone || '',
-                });
-                seenIds.add(id);
-            }
+            contactIds.push(id);
+            seenIds.add(id);
         }
     }
 
@@ -252,18 +265,43 @@ async function resolveAudience(
 
         for (const doc of snapshot.docs) {
             if (seenIds.has(doc.id)) continue;
-
-            const data = doc.data();
-            contacts.push({
-                id: doc.id,
-                name: data?.name || 'Sem Nome',
-                phone: data?.phone || '',
-            });
+            contactIds.push(doc.id);
             seenIds.add(doc.id);
         }
     }
 
-    return contacts;
+    return contactIds;
+}
+
+async function fetchContactsByIds(ownerId: string, contactIds: string[]): Promise<ContactToSend[]> {
+    const firestore = admin.firestore();
+    const contactsRef = firestore.collection('clients').doc(ownerId).collection('contacts');
+    const chunks: string[][] = [];
+    const chunkSize = 10;
+
+    for (let i = 0; i < contactIds.length; i += chunkSize) {
+        chunks.push(contactIds.slice(i, i + chunkSize));
+    }
+
+    const contactMap = new Map<string, ContactToSend>();
+    for (const chunk of chunks) {
+        const snapshot = await contactsRef
+            .where(admin.firestore.FieldPath.documentId(), 'in', chunk)
+            .get();
+
+        for (const doc of snapshot.docs) {
+            const data = doc.data();
+            contactMap.set(doc.id, {
+                id: doc.id,
+                name: data?.name || 'Sem Nome',
+                phone: data?.phone || '',
+            });
+        }
+    }
+
+    return contactIds
+        .map((id) => contactMap.get(id))
+        .filter((contact): contact is ContactToSend => Boolean(contact));
 }
 
 /**
@@ -276,19 +314,20 @@ export const startCampaignWorker = onRequest(async (req, res) => {
         return;
     }
 
-    const { campaignId, ownerId, action, batchIndex = 0 } = req.body as {
-        campaignId: string;
-        ownerId: string;
-        action: string;
-        batchIndex?: number;
-    };
+    if (!validateTaskToken(req.header('x-inove-task-token'))) {
+        res.status(401).send('Unauthorized');
+        return;
+    }
 
-    if (!campaignId || !['START', 'CONTINUE'].includes(action)) {
+    const parsed = workerPayloadSchema.safeParse(req.body);
+    if (!parsed.success) {
         res.status(400).send('Invalid payload');
         return;
     }
 
-    console.log(`[Worker] Action: ${action}, Campaign: ${campaignId}, Batch: ${batchIndex}`);
+    const { campaignId, action, batchIndex = 0 } = parsed.data;
+
+    logger.info(`[Worker] Action: ${action}, Campaign: ${campaignId}, Batch: ${batchIndex}`);
 
     const firestore = admin.firestore();
 
@@ -298,16 +337,27 @@ export const startCampaignWorker = onRequest(async (req, res) => {
         const campaignDoc = await campaignRef.get();
 
         if (!campaignDoc.exists) {
-            console.error(`Campaign ${campaignId} not found`);
+            logger.error(`Campaign ${campaignId} not found`);
             res.status(404).send('Campaign not found');
             return;
         }
 
-        const campaign = campaignDoc.data()!;
+        const campaign = campaignDoc.data();
+        if (!campaign) {
+            res.status(404).send('Campaign not found');
+            return;
+        }
+
+        const ownerId = campaign.ownerId as string | undefined;
+        if (!ownerId) {
+            logger.error(`Campaign ${campaignId} sem ownerId`);
+            res.status(400).send('Campaign missing ownerId');
+            return;
+        }
 
         // 2. Verificar status
         if (!['scheduled', 'sending'].includes(campaign.status)) {
-            console.warn(`Campaign ${campaignId} is in state: ${campaign.status}. Skipping.`);
+            logger.warn(`Campaign ${campaignId} is in state: ${campaign.status}. Skipping.`);
             res.status(200).send('Campaign not in sendable state');
             return;
         }
@@ -315,7 +365,7 @@ export const startCampaignWorker = onRequest(async (req, res) => {
         // 3. Buscar instância UAZAPI
         const instance = await getInstanceConfig(ownerId);
         if (!instance || !instance.apiUrl) {
-            console.error(`No UAZAPI instance configured for owner ${ownerId}`);
+            logger.error(`No UAZAPI instance configured for owner ${ownerId}`);
             await campaignRef.update({
                 status: 'paused',
                 pauseReason: 'error',
@@ -326,34 +376,43 @@ export const startCampaignWorker = onRequest(async (req, res) => {
         }
 
         // 4. Resolver audiência (apenas na primeira execução ou se não tiver cache)
-        let allContacts: ContactToSend[];
+        let resolvedContactIds: string[] = Array.isArray(campaign._resolvedContactIds)
+            ? campaign._resolvedContactIds
+            : [];
 
-        if (campaign._resolvedContacts && campaign._resolvedContacts.length > 0) {
-            // Usar cache
-            allContacts = campaign._resolvedContacts;
-        } else {
-            // Resolver pela primeira vez
-            allContacts = await resolveAudience(
+        if (resolvedContactIds.length === 0 && Array.isArray(campaign._resolvedContacts)) {
+            resolvedContactIds = campaign._resolvedContacts
+                .map((contact: ContactToSend) => contact.id)
+                .filter(Boolean);
+            await campaignRef.update({
+                _resolvedContactIds: resolvedContactIds,
+                _resolvedContacts: admin.firestore.FieldValue.delete(),
+            });
+        }
+
+        if (resolvedContactIds.length === 0) {
+            resolvedContactIds = await resolveAudienceIds(
                 ownerId,
                 campaign.targetCategoryIds || [],
                 campaign.targetContactIds || []
             );
 
-            // Salvar cache e total
+            // Salvar cache (somente IDs) e total
             await campaignRef.update({
-                _resolvedContacts: allContacts,
-                'stats.total': allContacts.length,
+                _resolvedContactIds: resolvedContactIds,
+                'stats.total': resolvedContactIds.length,
                 status: 'sending',
                 startedAt: admin.firestore.FieldValue.serverTimestamp(),
             });
         }
 
-        console.log(`[Worker] Total contacts: ${allContacts.length}, Starting from: ${campaign.lastContactIndex || 0}`);
+        logger.info(`[Worker] Total contacts: ${resolvedContactIds.length}, Starting from: ${campaign.lastContactIndex || 0}`);
 
         // 5. Determinar slice do batch
         const startIndex = campaign.lastContactIndex || 0;
-        const endIndex = Math.min(startIndex + CONFIG.BATCH_SIZE, allContacts.length);
-        const batchContacts = allContacts.slice(startIndex, endIndex);
+        const endIndex = Math.min(startIndex + CONFIG.BATCH_SIZE, resolvedContactIds.length);
+        const batchIds = resolvedContactIds.slice(startIndex, endIndex);
+        const batchContacts = await fetchContactsByIds(ownerId, batchIds);
 
         if (batchContacts.length === 0) {
             // Campanha concluída!
@@ -361,7 +420,7 @@ export const startCampaignWorker = onRequest(async (req, res) => {
                 status: 'completed',
                 completedAt: admin.firestore.FieldValue.serverTimestamp(),
             });
-            console.log(`[Worker] Campaign ${campaignId} completed!`);
+            logger.info(`[Worker] Campaign ${campaignId} completed!`);
             res.status(200).send('Campaign completed');
             return;
         }
@@ -377,9 +436,18 @@ export const startCampaignWorker = onRequest(async (req, res) => {
             if (i > 0 && i % 5 === 0) {
                 const freshDoc = await campaignRef.get();
                 if (freshDoc.data()?.status !== 'sending') {
-                    console.log(`[Worker] Campaign paused externally. Stopping batch.`);
+                    logger.info(`[Worker] Campaign paused externally. Stopping batch.`);
                     break;
                 }
+            }
+
+            if (!contact.phone) {
+                failedInBatch++;
+                await campaignRef.update({
+                    lastContactIndex: startIndex + i + 1,
+                    'stats.failed': admin.firestore.FieldValue.increment(1),
+                });
+                continue;
             }
 
             // Anti-Ban: Sincronizar contato na agenda
@@ -423,29 +491,29 @@ export const startCampaignWorker = onRequest(async (req, res) => {
             // Anti-Ban: Delay humanizado antes da próxima (se não for o último)
             if (i < batchContacts.length - 1) {
                 const delay = getHumanizedDelay();
-                console.log(`[Worker] Waiting ${delay}s before next message...`);
+                logger.info(`[Worker] Waiting ${delay}s before next message...`);
                 await new Promise(resolve => setTimeout(resolve, delay * 1000));
             }
         }
 
-        console.log(`[Worker] Batch completed. Sent: ${sentInBatch}, Failed: ${failedInBatch}`);
+        logger.info(`[Worker] Batch completed. Sent: ${sentInBatch}, Failed: ${failedInBatch}`);
 
         // 7. Verificar se precisa continuar
         const newLastIndex = startIndex + batchContacts.length;
 
-        if (newLastIndex < allContacts.length) {
+        if (newLastIndex < resolvedContactIds.length) {
             // Ainda tem mais contatos - agendar próximo batch
             // Por simplicidade, vamos apenas retornar que precisa continuar
             // Em produção, aqui usaríamos Cloud Tasks para agendar o próximo batch
 
-            console.log(`[Worker] More contacts remaining. Next batch starts at ${newLastIndex}`);
+            logger.info(`[Worker] More contacts remaining. Next batch starts at ${newLastIndex}`);
 
             // Auto-continue (simplificado - em produção seria Cloud Task)
             // Pausa curta entre batches (simula "Coffee Break" light)
             res.status(200).json({
                 status: 'batch_complete',
                 nextBatchIndex: newLastIndex,
-                totalContacts: allContacts.length,
+                totalContacts: resolvedContactIds.length,
                 message: 'Ready for next batch. Schedule CONTINUE action.',
             });
         } else {
@@ -462,7 +530,7 @@ export const startCampaignWorker = onRequest(async (req, res) => {
         }
 
     } catch (error) {
-        console.error('[Worker] Error:', error);
+        logger.error('[Worker] Error', error);
         res.status(500).send('Internal Server Error');
     }
 });
@@ -490,7 +558,7 @@ export const checkScheduledCampaigns = onSchedule('every 5 minutes', async () =>
         .where('scheduledAt', '<=', now)
         .get();
 
-    console.log(`[Scheduler] Found ${scheduledCampaigns.size} campaigns to start`);
+    logger.info(`[Scheduler] Found ${scheduledCampaigns.size} campaigns to start`);
 
     for (const doc of scheduledCampaigns.docs) {
         // Trigger worker via HTTP (internal call)
@@ -498,9 +566,9 @@ export const checkScheduledCampaigns = onSchedule('every 5 minutes', async () =>
         try {
             // For now, just flip to sending and let next check handle it
             await doc.ref.update({ status: 'sending' });
-            console.log(`[Scheduler] Started campaign ${doc.id}`);
+            logger.info(`[Scheduler] Started campaign ${doc.id}`);
         } catch (err) {
-            console.error(`[Scheduler] Error starting campaign ${doc.id}:`, err);
+            logger.error(`[Scheduler] Error starting campaign ${doc.id}`, err);
         }
     }
 });

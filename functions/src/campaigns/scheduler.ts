@@ -1,5 +1,6 @@
 import { CloudTasksClient } from '@google-cloud/tasks';
-import * as functions from 'firebase-functions';
+import { HttpsError } from 'firebase-functions/v2/https';
+import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
 
 // Initialize Firebase Admin if not already
@@ -19,13 +20,20 @@ const LOCATION = 'us-central1';
  * @param scheduledAt Date object para o início
  * @param ownerId ID do dono (tenant)
  */
-export const scheduleCampaignStart = async (campaignId: string, scheduledAt: Date, ownerId: string) => {
+export const scheduleCampaignStart = async (campaignId: string, scheduledAt: Date) => {
     if (!PROJECT_ID) {
-        console.warn('GCLOUD_PROJECT not set, skipping task creation (Emulator/Dev)');
+        logger.warn('GCLOUD_PROJECT nao definido, pulando criacao de task (Emulator/Dev)');
         return null;
     }
 
-    const queuePath = tasksClient.queuePath(PROJECT_ID, LOCATION, 'default');
+    const taskToken = process.env.CLOUD_TASKS_TOKEN;
+    const isEmulator = process.env.FUNCTIONS_EMULATOR === 'true' || process.env.FIREBASE_EMULATOR_HUB;
+    if (!taskToken && !isEmulator) {
+        throw new HttpsError('failed-precondition', 'CLOUD_TASKS_TOKEN nao configurado');
+    }
+
+    // Usando a fila padrão criada pelo script de setup
+    const queuePath = tasksClient.queuePath(PROJECT_ID, LOCATION, 'whatsapp-standard-queue');
 
     // Construct the URL for the startCampaignWorker function
     // Assuming region us-central1
@@ -33,7 +41,6 @@ export const scheduleCampaignStart = async (campaignId: string, scheduledAt: Dat
 
     const payload = {
         campaignId,
-        ownerId,
         action: 'START'
     };
 
@@ -44,6 +51,7 @@ export const scheduleCampaignStart = async (campaignId: string, scheduledAt: Dat
             body: Buffer.from(JSON.stringify(payload)).toString('base64'),
             headers: {
                 'Content-Type': 'application/json',
+                ...(taskToken ? { 'X-Inove-Task-Token': taskToken } : {}),
             },
             // Secure connection using OIDC
             oidcToken: {
@@ -57,10 +65,10 @@ export const scheduleCampaignStart = async (campaignId: string, scheduledAt: Dat
 
     try {
         const [response] = await tasksClient.createTask({ parent: queuePath, task });
-        console.log(`Created task ${response.name} for campaign ${campaignId} at ${scheduledAt.toISOString()}`);
+        logger.info(`Task criada ${response.name} para campanha ${campaignId} em ${scheduledAt.toISOString()}`);
         return response.name;
     } catch (error) {
-        console.error('Error creating Cloud Task:', error);
-        throw new functions.https.HttpsError('internal', 'Failed to schedule campaign', error);
+        logger.error('Erro ao criar Cloud Task', error);
+        throw new HttpsError('internal', 'Failed to schedule campaign');
     }
 };

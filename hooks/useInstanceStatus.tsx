@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ConnectionStatus, InstanceInfo, DisconnectionEvent } from '../types';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { useAuth } from './useAuth';
 
 interface UseInstanceStatusReturn {
   status: ConnectionStatus;
@@ -20,10 +23,10 @@ interface UseInstanceStatusReturn {
   simulateStatusChange: (newStatus: ConnectionStatus) => void;
 }
 
-// Estado inicial da instância
+// Estado inicial da instância (vazio até carregar do Firestore)
 const initialInstanceInfo: InstanceInfo = {
-  id: 'inst_vendas_01',
-  name: 'Vendas_Time_01',
+  id: '',
+  name: '',
   phone: null,
   status: 'disconnected',
   lastSync: null,
@@ -45,6 +48,7 @@ const initialInstanceInfo: InstanceInfo = {
  * 3. Atualizar o estado automaticamente quando o status mudar
  */
 export function useInstanceStatus(): UseInstanceStatusReturn {
+  const { user } = useAuth();
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
   const [previousStatus, setPreviousStatus] = useState<ConnectionStatus | null>(null);
   const [instanceInfo, setInstanceInfo] = useState<InstanceInfo>(initialInstanceInfo);
@@ -75,12 +79,10 @@ export function useInstanceStatus(): UseInstanceStatusReturn {
       setLastDisconnection(disconnectionEvent);
       setWasRecentlyDisconnected(true);
 
-      console.log('[Story 2.3] Desconexão detectada:', disconnectionEvent);
     }
 
     // Detecta reconexão
     if (newStatus === 'connected' && oldStatus === 'disconnected') {
-      console.log('[Story 2.3] Reconexão detectada. Campanhas podem ser retomadas.');
       // Não limpa wasRecentlyDisconnected aqui - permite UI mostrar status de recuperação
     }
 
@@ -164,17 +166,23 @@ export function useInstanceStatus(): UseInstanceStatusReturn {
     }
   }, [updateStatus, disconnect]);
 
-  // Simula listener de webhook (em produção será Firestore onSnapshot)
   useEffect(() => {
-    // TODO: Em produção, substituir por:
-    // const unsubscribe = onSnapshot(doc(db, 'instances', instanceId), (doc) => {
-    //   const data = doc.data();
-    //   updateStatus(data.status, data);
-    // });
-    // return () => unsubscribe();
+    if (!user?.id) return;
 
-    // Por enquanto, não faz nada - status é controlado manualmente
-  }, []);
+    const unsubscribe = onSnapshot(doc(db, 'instance_status', user.id), (snapshot) => {
+      const data = snapshot.data();
+      if (!data?.status) return;
+
+      updateStatus(data.status as ConnectionStatus, {
+        phone: data.phone || null,
+        battery: data.battery,
+        isCharging: data.isCharging,
+        lastSync: data.lastUpdate?.toDate ? data.lastUpdate.toDate().toISOString() : data.lastUpdate || 'agora',
+      });
+    });
+
+    return () => unsubscribe();
+  }, [updateStatus, user?.id]);
 
   return {
     status,
@@ -219,4 +227,3 @@ export function useInstanceStatusContext(): InstanceStatusContextType {
   }
   return context;
 }
-

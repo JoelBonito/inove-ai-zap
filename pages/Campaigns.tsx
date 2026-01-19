@@ -90,6 +90,7 @@ const Campaigns = () => {
           <button
             className="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
             title="Atualizar"
+            aria-label="Atualizar lista de campanhas"
           >
             <span className="material-symbols-outlined text-[20px]">
               refresh
@@ -98,6 +99,7 @@ const Campaigns = () => {
           <button
             className="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
             title="Exportar"
+            aria-label="Exportar campanhas"
           >
             <span className="material-symbols-outlined text-[20px]">
               download
@@ -174,13 +176,17 @@ const Campaigns = () => {
                           onClick={() => toggleCampaignStatus(camp.id, camp.status)}
                           className="p-2 text-slate-400 hover:text-primary dark:hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
                           title={camp.status === 'Enviando' ? "Pausar" : "Retomar"}
+                          aria-label={camp.status === 'Enviando' ? "Pausar campanha" : "Retomar campanha"}
                         >
                           <span className="material-symbols-outlined text-[20px]">
                             {camp.status === 'Enviando' ? 'pause' : 'play_arrow'}
                           </span>
                         </button>
                       )}
-                      <button className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
+                      <button
+                        className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                        aria-label="Mais acoes"
+                      >
                         <span className="material-symbols-outlined text-[20px]">
                           more_vert
                         </span>
@@ -205,12 +211,16 @@ const Campaigns = () => {
             <button
               className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               disabled
+              aria-label="Pagina anterior"
             >
               <span className="material-symbols-outlined text-[20px]">
                 chevron_left
               </span>
             </button>
-            <button className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+            <button
+              className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              aria-label="Proxima pagina"
+            >
               <span className="material-symbols-outlined text-[20px]">
                 chevron_right
               </span>

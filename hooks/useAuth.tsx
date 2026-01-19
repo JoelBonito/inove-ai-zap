@@ -1,14 +1,18 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { GoogleAuthProvider, onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup, signOut } from 'firebase/auth';
+import { auth } from '../lib/firebase';
 import { User, UserRole } from '../types';
 
 interface AuthContextType {
     user: User | null;
     isLoading: boolean;
     isAuthenticated: boolean;
+    error: string | null;
     isAdmin: boolean;
     isOwner: boolean;
     isSecretary: boolean;
     login: (email: string, password: string) => Promise<void>;
+    loginWithGoogle: () => Promise<void>;
     logout: () => Promise<void>;
 }
 
@@ -21,52 +25,65 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-    // Mock: Simula verificação de sessão ao carregar
     useEffect(() => {
-        const storedUser = localStorage.getItem('inove_user');
-        if (storedUser) {
-            try {
-                setUser(JSON.parse(storedUser));
-            } catch {
-                localStorage.removeItem('inove_user');
+        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+            if (firebaseUser) {
+                const role: UserRole = 'owner';
+                setUser({
+                    id: firebaseUser.uid,
+                    email: firebaseUser.email || '',
+                    displayName: firebaseUser.displayName || 'Usuario',
+                    role,
+                    clientId: firebaseUser.uid,
+                    avatarUrl: firebaseUser.photoURL || undefined,
+                    createdAt: new Date().toISOString(),
+                });
+            } else {
+                setUser(null);
             }
-        }
-        setIsLoading(false);
+            setIsLoading(false);
+        });
+
+        return () => unsubscribe();
     }, []);
 
-    // Mock: Login simulado
-    const login = async (email: string, _password: string) => {
+    const login = async (email: string, password: string) => {
         setIsLoading(true);
+        setError(null);
 
-        // Simula delay de rede
-        await new Promise(resolve => setTimeout(resolve, 800));
-
-        // Mock: Define role baseado no email para testes
-        let role: UserRole = 'owner';
-        if (email.includes('admin') || email.includes('joel')) {
-            role = 'admin';
-        } else if (email.includes('secretary') || email.includes('secretaria')) {
-            role = 'secretary';
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
+        } catch (err) {
+            setError('Falha ao entrar. Verifique suas credenciais.');
+        } finally {
+            setIsLoading(false);
         }
+    };
 
-        const mockUser: User = {
-            id: 'usr_' + Date.now(),
-            email,
-            displayName: email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-            role,
-            clientId: role === 'admin' ? undefined : 'client_default',
-            createdAt: new Date().toISOString(),
-        };
+    const loginWithGoogle = async () => {
+        setIsLoading(true);
+        setError(null);
 
-        setUser(mockUser);
-        localStorage.setItem('inove_user', JSON.stringify(mockUser));
-        setIsLoading(false);
+        try {
+            const provider = new GoogleAuthProvider();
+            await signInWithPopup(auth, provider);
+        } catch (err) {
+            setError('Falha ao entrar com Google.');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const logout = async () => {
-        setUser(null);
-        localStorage.removeItem('inove_user');
+        setIsLoading(true);
+        setError(null);
+        try {
+            await signOut(auth);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     // Helpers de permissão
@@ -81,10 +98,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 user,
                 isLoading,
                 isAuthenticated,
+                error,
                 isAdmin,
                 isOwner,
                 isSecretary,
                 login,
+                loginWithGoogle,
                 logout,
             }}
         >

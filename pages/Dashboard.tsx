@@ -7,7 +7,7 @@ import { useDisconnectionHandler } from '../hooks/useDisconnectionHandler';
 
 const Dashboard = () => {
   // Hooks para detecção de desconexão (Story 2.3)
-  const { status } = useInstanceStatusContext();
+  const { status, instanceInfo, refresh: refreshInstance, isLoading: instanceLoading } = useInstanceStatusContext();
   const { campaigns, pausedByDisconnection } = useCampaignsContext();
   const { showToast, dismissToast } = useDisconnectionHandler();
 
@@ -46,40 +46,49 @@ const Dashboard = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
 
-        {[
-          {
-            title: 'Mensagens Enviadas',
-            value: '12,450',
-            icon: 'send',
-            color: 'blue',
-            change: '+12%',
-            trend: 'up',
-          },
-          {
-            title: 'Fila Pendente',
-            value: '340',
-            icon: 'hourglass_top',
-            color: 'amber',
-            change: '+2%',
-            trend: 'up',
-          },
-          {
-            title: 'Taxa de Entrega',
-            value: '98.5%',
-            icon: 'done_all',
-            color: 'primary',
-            change: '+0.5%',
-            trend: 'up',
-          },
-          {
-            title: 'Falhas',
-            value: '15',
-            icon: 'error',
-            color: 'red',
-            change: '-1%',
-            trend: 'down',
-          },
-        ].map((stat, i) => (
+        {/* Stats calculados a partir das campanhas reais */}
+        {(() => {
+          // Calcula estatísticas reais das campanhas
+          const totalSent = campaigns.reduce((acc, c) => acc + (c.sent || 0), 0);
+          const totalPending = campaigns.reduce((acc, c) => acc + (c.pending || 0), 0);
+          const totalFailed = campaigns.reduce((acc, c) => acc + (c.failed || 0), 0);
+          const deliveryRate = totalSent > 0 ? ((totalSent - totalFailed) / totalSent * 100).toFixed(1) : '0';
+
+          return [
+            {
+              title: 'Mensagens Enviadas',
+              value: totalSent.toLocaleString('pt-BR'),
+              icon: 'send',
+              color: 'blue',
+              change: campaigns.length > 0 ? `${campaigns.length} campanhas` : 'Nenhuma campanha',
+              trend: 'up',
+            },
+            {
+              title: 'Fila Pendente',
+              value: totalPending.toLocaleString('pt-BR'),
+              icon: 'hourglass_top',
+              color: 'amber',
+              change: totalPending > 0 ? 'Em processamento' : 'Fila vazia',
+              trend: totalPending > 0 ? 'up' : 'down',
+            },
+            {
+              title: 'Taxa de Entrega',
+              value: `${deliveryRate}%`,
+              icon: 'done_all',
+              color: 'primary',
+              change: totalSent > 0 ? 'Calculado' : 'Sem dados',
+              trend: 'up',
+            },
+            {
+              title: 'Falhas',
+              value: totalFailed.toLocaleString('pt-BR'),
+              icon: 'error',
+              color: 'red',
+              change: totalFailed === 0 ? 'Nenhuma falha' : 'Requer atenção',
+              trend: totalFailed === 0 ? 'down' : 'up',
+            },
+          ];
+        })().map((stat, i) => (
           <div
             key={i}
             className="bg-white dark:bg-surface-dark p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-4 group hover:border-primary/50 transition-colors"
@@ -124,48 +133,60 @@ const Dashboard = () => {
             <h3 className="font-bold text-lg text-slate-900 dark:text-white">
               Status da Instância
             </h3>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800">
-              <div className="size-2 bg-primary rounded-full animate-pulse"></div>
-              <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-400">
-                Conectado
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${status === 'connected'
+              ? 'bg-emerald-100 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800'
+              : status === 'connecting'
+                ? 'bg-amber-100 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800'
+                : 'bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800'
+              }`}>
+              <div className={`size-2 rounded-full ${status === 'connected' ? 'bg-primary animate-pulse' :
+                status === 'connecting' ? 'bg-amber-500 animate-pulse' : 'bg-red-500'
+                }`}></div>
+              <span className={`text-xs font-semibold ${status === 'connected' ? 'text-emerald-800 dark:text-emerald-400' :
+                status === 'connecting' ? 'text-amber-800 dark:text-amber-400' :
+                  'text-red-800 dark:text-red-400'
+                }`}>
+                {status === 'connected' ? 'Conectado' : status === 'connecting' ? 'Conectando...' : 'Desconectado'}
               </span>
             </div>
           </div>
           <div className="p-6 flex flex-col items-center justify-center flex-1 gap-6 bg-slate-50/50 dark:bg-slate-800/20">
-            <div className="relative size-32 bg-white p-2 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-center">
-              <div
-                className="w-full h-full bg-contain bg-center bg-no-repeat opacity-20"
-                style={{
-                  backgroundImage:
-                    "url('https://lh3.googleusercontent.com/aida-public/AB6AXuDFdp_pHN2djc1ImWF6uCpPXTutOKbabz8ey3mYJL7d9zoIT_Nsvvujg5KysHIUwBMnVKSnoqm2BqPUyBC5ss0X_JboVlZczCvF5xZbB_XqcbH30KoRBwba2-xYTGlJD577lgzMScQno4uuNZHFhAB5-lb9abI5kGtq3crfq_Jjt833S0ovxIEKhFfMF9s1ZZ5g9umy0xYgI2p3LEJ5ajaiyS8Aa37KqG8Pl5FIhGMjR26vEjhDReS7rjH_LLaoex6G3qOzNADLgJPj')",
-                }}
-              ></div>
+            <div className="relative size-32 bg-white dark:bg-slate-800 p-2 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-center">
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="material-symbols-outlined text-4xl text-emerald-600">
-                  check_circle
+                <span className={`material-symbols-outlined text-4xl ${status === 'connected' ? 'text-emerald-600' :
+                  status === 'connecting' ? 'text-amber-500 animate-spin' : 'text-red-500'
+                  }`}>
+                  {status === 'connected' ? 'check_circle' : status === 'connecting' ? 'sync' : 'error'}
                 </span>
               </div>
             </div>
             <div className="text-center">
               <p className="font-semibold text-slate-900 dark:text-white text-lg">
-                Vendas_Time_01
+                {instanceInfo.name || 'Instância não configurada'}
               </p>
-              <p className="text-sm text-slate-500 mt-1">
-                Última sinc.: há 2 min
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                Última sinc.: {instanceInfo.lastSync
+                  ? new Date(instanceInfo.lastSync).toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                  : 'Nunca'
+                }
               </p>
-              <p className="text-xs text-slate-400 mt-0.5">
-                +55 (11) 98765-4321
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                {instanceInfo.phone || 'Sem número vinculado'}
               </p>
             </div>
           </div>
           <div className="p-4 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-3">
-            <button className="flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-white border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-              <span className="material-symbols-outlined text-[18px]">
+            <button
+              onClick={refreshInstance}
+              disabled={instanceLoading}
+              className="flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+            >
+              <span className={`material-symbols-outlined text-[18px] ${instanceLoading ? 'animate-spin' : ''}`}>
                 refresh
               </span>{' '}
               Sincronizar
             </button>
-            <button className="flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-white border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+            <button className="flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
               <span className="material-symbols-outlined text-[18px]">
                 settings
               </span>{' '}

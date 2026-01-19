@@ -8,108 +8,11 @@
   <link rel="icon" type="image/jpeg" href="/public/logo.jpg" />
   <link rel="apple-touch-icon" href="/public/logo.jpg" />
   <meta name="description" content="Automação de marketing para WhatsApp - Inove AI Zap" />
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-
   <!-- Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap"
     rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
     rel="stylesheet" />
-
-  <!-- Tailwind Configuration -->
-  <script>
-    tailwind.config = {
-      darkMode: "class",
-      theme: {
-        extend: {
-          colors: {
-            "primary": "#20df6c",
-            "primary-dark": "#18a852",
-            "background-light": "#f0f2f5",
-            "background-dark": "#112117",
-            "surface-light": "#ffffff",
-            "surface-dark": "#202c33",
-          },
-          fontFamily: {
-            "display": ["Inter", "sans-serif"]
-          },
-          borderRadius: {
-            "DEFAULT": "0.25rem",
-            "lg": "0.5rem",
-            "xl": "0.75rem",
-            "full": "9999px"
-          },
-        },
-      },
-    }
-  </script>
-  <style>
-    ::-webkit-scrollbar {
-      width: 8px;
-      height: 8px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
-      border-radius: 4px;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-      background: #94a3b8;
-    }
-
-    .dark ::-webkit-scrollbar-thumb {
-      background: #374151;
-    }
-
-    /* Custom Toggle Checkbox */
-    .toggle-checkbox:checked {
-      right: 0;
-      border-color: #20df6c;
-    }
-
-    .toggle-checkbox:checked+.toggle-label {
-      background-color: #20df6c;
-    }
-
-    /* Story 2.3 - Animações para alertas de desconexão */
-    @keyframes pulse-slow {
-
-      0%,
-      100% {
-        opacity: 1;
-      }
-
-      50% {
-        opacity: 0.85;
-      }
-    }
-
-    .animate-pulse-slow {
-      animation: pulse-slow 3s ease-in-out infinite;
-    }
-
-    @keyframes slide-up {
-      0% {
-        transform: translateY(100%);
-        opacity: 0;
-      }
-
-      100% {
-        transform: translateY(0);
-        opacity: 1;
-      }
-    }
-
-    .animate-slide-up {
-      animation: slide-up 0.3s ease-out forwards;
-    }
-  </style>
   <script type="importmap">
 {
   "imports": {

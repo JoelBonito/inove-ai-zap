@@ -1,9 +1,9 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { create } from 'zustand';
 
 /**
  * Interface para os estados de UI globais
  */
-interface UIContextType {
+interface UIState {
     // Modais
     isNewCampaignModalOpen: boolean;
     setIsNewCampaignModalOpen: (open: boolean) => void;
@@ -20,43 +20,37 @@ interface UIContextType {
     // Sidebar
     isSidebarCollapsed: boolean;
     setIsSidebarCollapsed: (collapsed: boolean) => void;
-}
 
-const UIContext = createContext<UIContextType | undefined>(undefined);
+    // Mobile
+    isMobileNavOpen: boolean;
+    setIsMobileNavOpen: (open: boolean) => void;
 
-/**
- * Provider para o estado de UI global
- */
-export function UIProvider({ children }: { children: ReactNode }) {
-    const [isNewCampaignModalOpen, setIsNewCampaignModalOpen] = useState(false);
-    const [isNewContactModalOpen, setIsNewContactModalOpen] = useState(false);
-    const [isImportContactsModalOpen, setIsImportContactsModalOpen] = useState(false);
-    const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-
-    const value = {
-        isNewCampaignModalOpen,
-        setIsNewCampaignModalOpen,
-        isNewContactModalOpen,
-        setIsNewContactModalOpen,
-        isImportContactsModalOpen,
-        setIsImportContactsModalOpen,
-        isCategoryModalOpen,
-        setIsCategoryModalOpen,
-        isSidebarCollapsed,
-        setIsSidebarCollapsed,
-    };
-
-    return <UIContext.Provider value={value}>{children}</UIContext.Provider>;
+    // Theme - Arquitetura Dark Mode
+    theme: 'light' | 'dark' | 'system';
+    setTheme: (theme: 'light' | 'dark' | 'system') => void;
 }
 
 /**
- * Hook para acessar o contexto de UI
+ * Store global de UI (Zustand)
  */
-export function useUI() {
-    const context = useContext(UIContext);
-    if (context === undefined) {
-        throw new Error('useUI deve ser usado dentro de um UIProvider');
-    }
-    return context;
-}
+export const useUI = create<UIState>((set) => ({
+    isNewCampaignModalOpen: false,
+    setIsNewCampaignModalOpen: (open) => set({ isNewCampaignModalOpen: open }),
+    isNewContactModalOpen: false,
+    setIsNewContactModalOpen: (open) => set({ isNewContactModalOpen: open }),
+    isImportContactsModalOpen: false,
+    setIsImportContactsModalOpen: (open) => set({ isImportContactsModalOpen: open }),
+    isCategoryModalOpen: false,
+    setIsCategoryModalOpen: (open) => set({ isCategoryModalOpen: open }),
+    isSidebarCollapsed: false,
+    setIsSidebarCollapsed: (collapsed) => set({ isSidebarCollapsed: collapsed }),
+    isMobileNavOpen: false,
+    setIsMobileNavOpen: (open) => set({ isMobileNavOpen: open }),
+
+    // Inicialização do Tema
+    theme: (localStorage.getItem('inove-theme') as 'light' | 'dark' | 'system') || 'system',
+    setTheme: (theme) => {
+        localStorage.setItem('inove-theme', theme);
+        set({ theme });
+    },
+}));

@@ -1,8 +1,10 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Campaign, CampaignPauseInfo } from '../types';
 import { db, functions } from '../lib/firebase';
-import { collection, onSnapshot, query, orderBy, doc, updateDoc, Timestamp } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc, updateDoc, Timestamp, where, getDocs } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from './useAuth';
 
 interface UseCampaignsReturn {
     campaigns: Campaign[];
@@ -13,49 +15,18 @@ interface UseCampaignsReturn {
     addCampaign: (data: Partial<Campaign>) => void;
     toggleCampaignStatus: (id: string, currentStatus: string) => void;
     isProcessing: boolean;
+    error: string | null;
 }
 
 /**
  * Hook para gerenciar campanhas com integração Realtime ao Firestore.
  */
 export function useCampaigns(): UseCampaignsReturn {
-    const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+    const { user } = useAuth();
+    const queryClient = useQueryClient();
     const [pausedByDisconnection, setPausedByDisconnection] = useState<CampaignPauseInfo[]>([]);
     const [isProcessing, setIsProcessing] = useState(false);
-
-    // Initial load & Realtime subscription
-    useEffect(() => {
-        const q = query(collection(db, 'campaigns'), orderBy('createdAt', 'desc'));
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const campaignsData: Campaign[] = snapshot.docs.map(doc => {
-                const data = doc.data();
-                return {
-                    id: doc.id,
-                    name: data.name,
-                    status: mapFirebaseStatusToUi(data.status),
-                    // Format date from Timestamp or fallback
-                    date: data.createdAt?.toDate
-                        ? data.createdAt.toDate().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
-                        : 'N/A',
-                    progress: calculateProgress(data.stats),
-                    total: data.stats?.total || data.total || 0,
-                    sent: data.stats?.sent || 0,
-                    scheduledAt: data.scheduledAt?.toDate ? data.scheduledAt.toDate().toISOString() : undefined,
-                    pauseReason: data.pauseReason,
-                    targetCategoryIds: data.targetCategoryIds,
-                    content: data.content,
-                } as Campaign;
-            });
-            setCampaigns(campaignsData);
-        }, (error) => {
-            console.error("Error listening to campaigns:", error);
-        });
-
-        return () => unsubscribe();
-    }, []);
-
-    const activeCampaigns = campaigns.filter(c => c.status === 'Enviando');
+    const [error, setError] = useState<string | null>(null);
 
     // Helper: Map status
     const mapFirebaseStatusToUi = (status: string): Campaign['status'] => {
@@ -70,16 +41,81 @@ export function useCampaigns(): UseCampaignsReturn {
         return map[status] || 'Agendado';
     };
 
-    const calculateProgress = (stats: any): number => {
+    const calculateProgress = (stats: { total?: number; sent?: number } | undefined): number => {
         if (!stats || !stats.total || stats.total === 0) return 0;
         return Math.round((stats.sent / stats.total) * 100);
     };
+
+    const mapCampaign = (id: string, data: Record<string, unknown>): Campaign => {
+        const createdAt = data.createdAt as { toDate?: () => Date } | undefined;
+        const scheduledAt = data.scheduledAt as { toDate?: () => Date } | undefined;
+        const stats = data.stats as { total?: number; sent?: number } | undefined;
+
+        return {
+            id,
+            name: data.name as string,
+            status: mapFirebaseStatusToUi(data.status as string),
+            date: createdAt?.toDate
+                ? createdAt.toDate().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+                : 'N/A',
+            progress: calculateProgress(stats),
+            total: stats?.total || (data.total as number) || 0,
+            sent: stats?.sent || 0,
+            scheduledAt: scheduledAt?.toDate ? scheduledAt.toDate().toISOString() : undefined,
+            pauseReason: data.pauseReason as Campaign['pauseReason'],
+            targetCategoryIds: data.targetCategoryIds as string[] | undefined,
+            content: data.content as string | undefined,
+        };
+    };
+
+    const campaignsQuery = useQuery({
+        queryKey: ['campaigns', user?.id],
+        enabled: Boolean(user?.id),
+        queryFn: async () => {
+            if (!user?.id) return [];
+            const q = query(
+                collection(db, 'campaigns'),
+                where('ownerId', '==', user.id),
+                orderBy('createdAt', 'desc')
+            );
+            const snapshot = await getDocs(q);
+            return snapshot.docs.map((docSnapshot) => mapCampaign(docSnapshot.id, docSnapshot.data()));
+        },
+        initialData: [],
+    });
+
+    useEffect(() => {
+        if (!user?.id) return;
+
+        const q = query(
+            collection(db, 'campaigns'),
+            where('ownerId', '==', user.id),
+            orderBy('createdAt', 'desc')
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const campaignsData = snapshot.docs.map((docSnapshot) =>
+                mapCampaign(docSnapshot.id, docSnapshot.data())
+            );
+            queryClient.setQueryData(['campaigns', user.id], campaignsData);
+        }, () => {
+            setError('Falha ao carregar campanhas.');
+        });
+
+        return () => unsubscribe();
+    }, [queryClient, user?.id]);
+
+    const activeCampaigns = useMemo(
+        () => campaignsQuery.data.filter(c => c.status === 'Enviando'),
+        [campaignsQuery.data]
+    );
 
     /**
      * Pausa todas as campanhas ativas localmente e no backend (se desconexão)
      */
     const pauseActiveCampaigns = useCallback((reason: Campaign['pauseReason']): CampaignPauseInfo[] => {
         setIsProcessing(true);
+        setError(null);
         const pausedInfo: CampaignPauseInfo[] = [];
 
         // Pause in backend
@@ -100,7 +136,7 @@ export function useCampaigns(): UseCampaignsReturn {
                     reason,
                 });
             } catch (err) {
-                console.error(`Failed to pause campaign ${campaign.id}`, err);
+                setError('Falha ao pausar campanhas.');
             }
         });
 
@@ -114,6 +150,7 @@ export function useCampaigns(): UseCampaignsReturn {
      */
     const resumePausedCampaigns = useCallback(() => {
         setIsProcessing(true);
+        setError(null);
         pausedByDisconnection.forEach(async (info) => {
             try {
                 await updateDoc(doc(db, 'campaigns', info.campaignId), {
@@ -122,7 +159,7 @@ export function useCampaigns(): UseCampaignsReturn {
                     pausedAt: null
                 });
             } catch (err) {
-                console.error(`Failed to resume campaign ${info.campaignId}`, err);
+                setError('Falha ao retomar campanhas.');
             }
         });
         setPausedByDisconnection([]);
@@ -140,8 +177,7 @@ export function useCampaigns(): UseCampaignsReturn {
                 pauseReason: newStatus === 'paused' ? 'manual' : null
             });
         } catch (err) {
-            console.error("Error toggling status:", err);
-            alert("Erro ao atualizar status da campanha.");
+            setError('Erro ao atualizar status da campanha.');
         }
     }, []);
 
@@ -150,6 +186,7 @@ export function useCampaigns(): UseCampaignsReturn {
      */
     const addCampaign = useCallback(async (data: Partial<Campaign>) => {
         setIsProcessing(true);
+        setError(null);
         try {
             const createCampaignFn = httpsCallable(functions, 'createCampaign');
             const payload = {
@@ -167,15 +204,14 @@ export function useCampaigns(): UseCampaignsReturn {
             await createCampaignFn(payload);
             // No need to update state manually, onSnapshot will handle it
         } catch (error) {
-            console.error('Error creating campaign:', error);
-            alert('Erro ao criar campanha. Verifique o console.');
+            setError('Erro ao criar campanha.');
         } finally {
             setIsProcessing(false);
         }
     }, []);
 
     return {
-        campaigns,
+        campaigns: campaignsQuery.data,
         activeCampaigns,
         pausedByDisconnection,
         pauseActiveCampaigns,
@@ -183,6 +219,7 @@ export function useCampaigns(): UseCampaignsReturn {
         addCampaign,
         toggleCampaignStatus,
         isProcessing,
+        error,
     };
 }
 

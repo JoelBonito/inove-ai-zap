@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Category, CategoryColor } from '../../types';
 import { CATEGORY_COLORS } from '../../hooks/useCategories';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './dialog';
+import { CATEGORY_COLOR_CLASSES, DEFAULT_BADGE_CLASSES } from '../../lib/categoryColors';
 
 interface CategoryModalProps {
     isOpen: boolean;
@@ -63,29 +65,17 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
         }
     };
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <div
-                className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-                onClick={onClose}
-            />
-
-            {/* Modal */}
-            <div className="relative bg-white dark:bg-surface-dark rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-                {/* Header */}
-                <div className="p-6 border-b border-slate-100 dark:border-slate-800">
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+            <DialogContent className="max-w-md p-0 overflow-hidden">
+                <DialogHeader className="p-6 border-b border-slate-100 dark:border-slate-800">
+                    <DialogTitle>
                         {isEditMode ? 'Editar Categoria' : 'Nova Categoria'}
-                    </h2>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    </DialogTitle>
+                    <DialogDescription>
                         {isEditMode ? 'Altere os dados da categoria' : 'Crie uma categoria para organizar seus contatos'}
-                    </p>
-                </div>
-
-                {/* Form */}
+                    </DialogDescription>
+                </DialogHeader>
                 <form onSubmit={handleSubmit}>
                     <div className="p-6 space-y-5">
                         {/* Nome */}
@@ -122,6 +112,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
                                             }
                     `}
                                         title={c.label}
+                                        aria-label={`Selecionar cor ${c.label}`}
                                     />
                                 ))}
                             </div>
@@ -133,12 +124,10 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
                                 Prévia
                             </label>
                             <div className="flex items-center gap-2">
-                                <span className={`size-3 rounded-full bg-${color}-500`}></span>
+                                <span className={`size-3 rounded-full ${CATEGORY_COLOR_CLASSES[color]?.dot || 'bg-slate-500'}`}></span>
                                 <span className={`
                   inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border
-                  bg-${color}-50 dark:bg-${color}-900/30 
-                  text-${color}-700 dark:text-${color}-300
-                  border-${color}-100 dark:border-${color}-800/50
+                  ${CATEGORY_COLOR_CLASSES[color]?.badge || DEFAULT_BADGE_CLASSES}
                 `}>
                                     {name.trim() || 'Nome da categoria'}
                                 </span>
@@ -156,7 +145,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
                     </div>
 
                     {/* Footer */}
-                    <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-3">
+                    <DialogFooter className="p-6 border-t border-slate-100 dark:border-slate-800">
                         <button
                             type="button"
                             onClick={onClose}
@@ -178,10 +167,10 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
                             )}
                             {isEditMode ? 'Salvar' : 'Criar Categoria'}
                         </button>
-                    </div>
+                    </DialogFooter>
                 </form>
-            </div>
-        </div>
+            </DialogContent>
+        </Dialog>
     );
 };
 
@@ -208,45 +197,28 @@ export const DeleteCategoryModal: React.FC<DeleteCategoryModalProps> = ({
         onClose();
     };
 
-    if (!isOpen || !category) return null;
-
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <div
-                className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-                onClick={onClose}
-            />
-
-            {/* Modal */}
-            <div className="relative bg-white dark:bg-surface-dark rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+        <Dialog open={isOpen && Boolean(category)} onOpenChange={(open) => !open && onClose()}>
+            <DialogContent className="max-w-sm p-0 overflow-hidden">
                 <div className="p-6 text-center">
-                    {/* Icon */}
                     <div className="mx-auto size-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4">
                         <span className="material-symbols-outlined text-3xl text-red-600 dark:text-red-400">
                             delete
                         </span>
                     </div>
+                    <DialogTitle className="text-lg mb-2">Excluir categoria?</DialogTitle>
+                    <DialogDescription className="mb-2">
+                        A categoria <span className="font-semibold text-slate-700 dark:text-slate-200">"{category?.name}"</span> será excluída permanentemente.
+                    </DialogDescription>
 
-                    {/* Title */}
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
-                        Excluir categoria?
-                    </h3>
-
-                    {/* Description */}
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">
-                        A categoria <span className="font-semibold text-slate-700 dark:text-slate-200">"{category.name}"</span> será excluída permanentemente.
-                    </p>
-
-                    {category.contactCount > 0 && (
+                    {category && category.contactCount > 0 && (
                         <p className="text-sm text-amber-600 dark:text-amber-400">
                             <span className="font-semibold">{category.contactCount}</span> contatos serão desassociados (não serão excluídos).
                         </p>
                     )}
                 </div>
 
-                {/* Actions */}
-                <div className="p-4 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-center gap-3">
+                <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-800/50 justify-center">
                     <button
                         onClick={onClose}
                         className="px-4 py-2 text-slate-600 dark:text-slate-300 font-medium rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
@@ -265,9 +237,9 @@ export const DeleteCategoryModal: React.FC<DeleteCategoryModalProps> = ({
                         )}
                         Excluir
                     </button>
-                </div>
-            </div>
-        </div>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 };
 

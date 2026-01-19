@@ -1,12 +1,22 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 
 const Login = () => {
   const navigate = useNavigate();
+  const { login, loginWithGoogle, isLoading, isAuthenticated, error } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, navigate]);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate('/');
+    await login(email, password);
   };
 
   return (
@@ -59,6 +69,8 @@ const Login = () => {
                   placeholder="seu@email.com"
                   required
                   type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
                 />
               </div>
             </div>
@@ -87,14 +99,22 @@ const Login = () => {
                   placeholder="••••••••"
                   required
                   type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
                 />
               </div>
             </div>
+            {error && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+                {error}
+              </div>
+            )}
             <button
-              className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-[#1DA851] text-white font-bold py-3 rounded-lg transition-all shadow-md hover:shadow-lg transform active:scale-[0.98] mt-2"
+              className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-[#1DA851] text-white font-bold py-3 rounded-lg transition-all shadow-md hover:shadow-lg transform active:scale-[0.98] mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
               type="submit"
+              disabled={isLoading}
             >
-              Entrar
+              {isLoading ? 'Entrando...' : 'Entrar'}
             </button>
           </form>
           <div className="relative my-6">
@@ -110,7 +130,8 @@ const Login = () => {
           <button
             className="w-full flex items-center justify-center gap-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold py-2.5 rounded-lg transition-colors"
             type="button"
-            onClick={handleLogin}
+            onClick={loginWithGoogle}
+            disabled={isLoading}
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path

@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { updateProfile } from 'firebase/auth';
+import { auth } from '../lib/firebase';
 
 type SettingsTab = 'profile' | 'api' | 'notifications' | 'security';
 
@@ -11,8 +13,47 @@ interface TabConfig {
 }
 
 const Settings = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
+
+  // Estado do formulário de perfil
+  const [profileForm, setProfileForm] = useState({
+    displayName: '',
+    email: '',
+    phone: '',
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Carrega dados do usuário ao montar
+  useEffect(() => {
+    if (user) {
+      setProfileForm({
+        displayName: user.displayName || '',
+        email: user.email || '',
+        phone: '', // Firestore field (to be implemented)
+      });
+    }
+  }, [user]);
+
+  // Salva alterações do perfil
+  const handleSaveProfile = async () => {
+    if (!auth.currentUser) return;
+
+    setIsSaving(true);
+    setSaveMessage(null);
+
+    try {
+      await updateProfile(auth.currentUser, {
+        displayName: profileForm.displayName,
+      });
+      setSaveMessage({ type: 'success', text: 'Perfil atualizado com sucesso!' });
+    } catch (error) {
+      setSaveMessage({ type: 'error', text: 'Erro ao salvar alterações. Tente novamente.' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Configuração das tabs - API só aparece para admin
   const tabs: TabConfig[] = [
@@ -35,8 +76,8 @@ const Settings = () => {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium flex items-center gap-2 transition-colors ${activeTab === tab.id
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'
                 }`}
             >
               <span className="material-symbols-outlined text-[20px]">
@@ -57,31 +98,27 @@ const Settings = () => {
                 Informações do Perfil
               </h3>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                Atualize os detalhes pessoais e sua função no sistema.
+                Atualize os detalhes pessoais da sua conta.
               </p>
             </div>
             <div className="p-6 space-y-6">
               <div className="flex items-center gap-6">
                 <div className="relative">
                   <div
-                    className="size-20 rounded-full bg-slate-200 dark:bg-slate-700 bg-cover bg-center ring-4 ring-slate-50 dark:ring-slate-800"
-                    style={{
-                      backgroundImage:
-                        "url('https://lh3.googleusercontent.com/aida-public/AB6AXuBqA7lgl7knnTWLEjpYJx1IIZP6588uJuI1q-NHWBkFIJMlDNbsL3cZymzQIyHXl1yRqqijGbhU8qIvHZHgRKcI_3Gfesw-aE8iD0i6SEC8b1zwdOjSu9HyZy61cNEMRGFaYR2vzyjh_wyw4lW5yYBNohVXsZysfjn36ZWW9pN7QNWlg5r6HWpynPAxXNX9xiBpqmeI0IAk78DzkesYpyeAw1eQG_xVXbUJqtqWx1BZ851Atppu9Eadt_oC2lwMGhyyHFwkfwXv2dqf')",
-                    }}
-                  ></div>
-                  <button className="absolute bottom-0 right-0 p-1.5 bg-primary text-white rounded-full hover:bg-primary-dark transition-colors shadow-sm">
-                    <span className="material-symbols-outlined text-[16px] block">
-                      edit
-                    </span>
-                  </button>
+                    className="size-20 rounded-full bg-slate-200 dark:bg-slate-700 bg-cover bg-center ring-4 ring-slate-50 dark:ring-slate-800 flex items-center justify-center text-2xl font-bold text-slate-500 dark:text-slate-400"
+                    style={user?.avatarUrl ? {
+                      backgroundImage: `url('${user.avatarUrl}')`,
+                    } : undefined}
+                  >
+                    {!user?.avatarUrl && (user?.displayName?.[0]?.toUpperCase() || 'U')}
+                  </div>
                 </div>
                 <div>
                   <h4 className="text-base font-semibold text-slate-900 dark:text-white">
                     Sua Foto
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Isso será exibido no seu perfil.
+                    A foto é importada da sua conta Google.
                   </p>
                 </div>
               </div>
@@ -94,10 +131,11 @@ const Settings = () => {
                     Nome Completo
                   </label>
                   <input
-                    className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:border-primary focus:ring-primary shadow-sm text-sm"
+                    className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:border-primary focus:ring-primary shadow-sm text-sm px-3 py-2"
                     id="fullName"
                     type="text"
-                    defaultValue="Alex Morgan"
+                    value={profileForm.displayName}
+                    onChange={(e) => setProfileForm({ ...profileForm, displayName: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -114,59 +152,58 @@ const Settings = () => {
                       </span>
                     </span>
                     <input
-                      className="w-full pl-10 rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:border-primary focus:ring-primary shadow-sm text-sm"
+                      className="w-full pl-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400 cursor-not-allowed shadow-sm text-sm px-3 py-2"
                       id="email"
                       type="email"
-                      defaultValue="alex.morgan@inove-ai.com"
+                      value={profileForm.email}
+                      disabled
+                      title="O email não pode ser alterado"
                     />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <label
-                    className="text-sm font-semibold text-slate-700 dark:text-slate-300"
-                    htmlFor="role"
-                  >
-                    Função / Cargo
-                  </label>
-                  <div className="relative">
-                    <select
-                      className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:border-primary focus:ring-primary shadow-sm text-sm appearance-none"
-                      id="role"
-                      defaultValue="owner"
-                    >
-                      <option value="owner">Dono</option>
-                      <option value="secretary">Secretária</option>
-                      <option value="manager">Gerente</option>
-                    </select>
-                    <span className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-500">
-                      <span className="material-symbols-outlined text-[20px]">
-                        expand_more
-                      </span>
-                    </span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label
-                    className="text-sm font-semibold text-slate-700 dark:text-slate-300"
-                    htmlFor="phone"
-                  >
-                    Telefone
-                  </label>
-                  <input
-                    className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:border-primary focus:ring-primary shadow-sm text-sm"
-                    id="phone"
-                    type="text"
-                    defaultValue="+55 (11) 98765-4321"
-                  />
+                  <p className="text-xs text-slate-400">
+                    O email está vinculado à sua conta Google e não pode ser alterado.
+                  </p>
                 </div>
               </div>
+
+              {/* Mensagem de feedback */}
+              {saveMessage && (
+                <div className={`p-3 rounded-lg flex items-center gap-2 ${saveMessage.type === 'success'
+                    ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                    : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
+                  }`}>
+                  <span className="material-symbols-outlined text-[18px]">
+                    {saveMessage.type === 'success' ? 'check_circle' : 'error'}
+                  </span>
+                  {saveMessage.text}
+                </div>
+              )}
             </div>
             <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
-              <button className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white transition-colors">
+              <button
+                onClick={() => {
+                  if (user) {
+                    setProfileForm({
+                      displayName: user.displayName || '',
+                      email: user.email || '',
+                      phone: '',
+                    });
+                  }
+                  setSaveMessage(null);
+                }}
+                className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white transition-colors"
+              >
                 Cancelar
               </button>
-              <button className="px-4 py-2 text-sm font-medium text-white bg-slate-900 dark:bg-primary rounded-lg hover:bg-slate-800 dark:hover:bg-primary-dark transition-colors shadow-sm">
-                Salvar Alterações
+              <button
+                onClick={handleSaveProfile}
+                disabled={isSaving}
+                className="px-4 py-2 text-sm font-medium text-white bg-slate-900 dark:bg-primary rounded-lg hover:bg-slate-800 dark:hover:bg-primary-dark transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2"
+              >
+                {isSaving && (
+                  <span className="material-symbols-outlined text-[18px] animate-spin">sync</span>
+                )}
+                {isSaving ? 'Salvando...' : 'Salvar Alterações'}
               </button>
             </div>
           </div>

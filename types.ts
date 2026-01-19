@@ -6,6 +6,8 @@ export interface Campaign {
   progress: number;
   total: number;
   sent: number;
+  pending?: number;
+  failed?: number;
 
   // Epic 4 - Conteúdo e Configuração
   content?: string;

@@ -1,67 +1,92 @@
-# Plano de Correções — Auditoria de Segurança e UI
+# Plano de Correcoes — Auditoria de Sistema, Seguranca e UX
 
-Data: 2026-01-18
+Data: 2026-01-19
 Projeto: inove-ai-zap
 
 ## Objetivo
-Organizar as correções prioritárias de segurança e UI/UX para execução em outra sessão, mantendo rastreabilidade e ordem de impacto.
+Atualizar o diagnostico de riscos e UX e definir correcoes priorizadas para aplicacao imediata e rastreavel.
 
 ## Escopo
-- Segurança (backend, Firestore, autenticação, validação, dados sensíveis)
-- UI/UX (acessibilidade, responsividade, consistência visual, design system)
+- Sistema (arquitetura, estado, integracoes, multi-tenant)
+- Seguranca (Functions, Firestore Rules, webhooks, dados sensiveis)
+- UI/UX (acessibilidade, responsividade, design system)
 
 ---
 
-## Fase 1 — Segurança Crítica e Base de Regras
-**Prioridade:** Crítica
+## Achados Principais
 
-- [ ] Implementar `firestore.rules` conforme `Docs/01-Arquitetura/FIRESTORE-SECURITY-RULES.md`.
-- [ ] Implementar `firestore.indexes.json` conforme consultas existentes e regras.
-- [ ] Bloquear acesso público ao `startCampaignWorker` e validar origem (OIDC/Cloud Tasks).
-- [ ] Validar autenticação e autorização em Functions com base no `ownerId`/tenant.
-- [ ] Adicionar validação de payload com Zod em todas as Functions expostas.
+### Sistema
+- Estado global nao usa Zustand e estado de servidor nao usa React Query.
+- Autenticacao ainda mockada no frontend; rotas protegidas nao estao acopladas ao Firebase Auth.
+- Tailwind via CDN e tokens fora do build pipeline (risco de classes dinamicas nao gerarem CSS).
+- Componentes UI sao customizados e nao padronizados em @/components/ui (violacao do design system).
 
-**Entrega:** deploy de rules/indexes + Functions com validação e acesso restrito.
+### Seguranca
+- `startCampaignWorker` e `uazapiWebhook` expostos sem validacao de origem/assinatura.
+- `startCampaignWorker` confia no `ownerId` do payload (risco de acesso indevido).
+- Falta validacao de payload (Zod) nas Functions expostas.
+- Cache `_resolvedContacts` armazena PII em campanha (telefone/nome).
+- Logs e erros com `console.*` em codigo de producao.
+
+### UI/UX
+- Modais customizados sem foco/ESC e sem `aria-*` (acessibilidade incompleta).
+- Sidebar fixa sem comportamento responsivo (drawer no mobile).
+- Botoes de icone sem `aria-label` em fluxos criticos.
+- Estados de erro dependem de `alert()` e sem feedback visual consistente.
 
 ---
 
-## Fase 2 — Redução de Exposição de Dados Sensíveis
+## Plano de Correcoes (Atualizado)
+
+### Fase 1 — Seguranca Critica e Integridade de Dados
+**Prioridade:** Critica
+
+- [x] Validar origem de `startCampaignWorker` (OIDC/secret) e rejeitar chamadas nao autorizadas.
+- [x] Validar assinatura/token no `uazapiWebhook`.
+- [x] Garantir `ownerId` derivado do documento da campanha (nao do payload).
+- [x] Adicionar validacao de payload com Zod nas Functions expostas.
+- [x] Remover cache `_resolvedContacts` e usar apenas IDs (ou processamento por lote) para evitar PII.
+
+**Entrega:** Functions protegidas e validações robustas.
+
+---
+
+### Fase 2 — Sistema e Estado
 **Prioridade:** Alta
 
-- [ ] Mover segredos de instância para coleção protegida (`clients/{clientId}/secrets/*`).
-- [ ] Criptografar tokens UAZAPI no backend (AES-256) e nunca expor ao frontend.
-- [ ] Evitar persistir PII em `_resolvedContacts` (guardar apenas IDs, ou calcular por lote).
-- [ ] Implementar filtros multi-tenant no frontend (ex.: campanhas por `ownerId`).
+- [x] Substituir Auth mock por Firebase Auth (email/senha + Google opcional).
+- [x] Adicionar React Query para estado de servidor (campanhas/contatos/categorias).
+- [x] Migrar estado de UI para Zustand.
+- [x] Ajustar queries por `ownerId` (multi-tenant) no frontend.
 
-**Entrega:** dados sensíveis isolados e minimizados, front alinhado ao tenant.
+**Entrega:** estado previsivel, multi-tenant consistente e auth real.
 
 ---
 
-## Fase 3 — UI/UX Acessível e Responsiva
+### Fase 3 — UI/UX e Acessibilidade
 **Prioridade:** Alta
 
-- [ ] Substituir modais customizados por `@/components/ui` (Dialog/Sheet) com foco e ESC.
-- [ ] Garantir `aria-label` em botões de ícone e foco visível em inputs e ações.
-- [ ] Implementar sidebar responsiva (drawer no mobile) e header adaptado.
-- [ ] Revisar contraste e estados (hover/focus/disabled) em telas críticas.
+- [x] Migrar modais para componentes `@/components/ui` com foco/ESC.
+- [x] Adicionar `aria-label` em botoes de icone e estados de foco visiveis.
+- [x] Implementar sidebar responsiva (drawer no mobile).
+- [x] Padronizar feedback de erro (evitar `alert`).
 
-**Entrega:** UI navegável por teclado, responsiva e com acessibilidade básica OK.
-
----
-
-## Fase 4 — Design System e Consistência Visual
-**Prioridade:** Média
-
-- [ ] Migrar Tailwind do CDN para build pipeline com `tailwind.config.*`.
-- [ ] Consolidar tokens do Stitch no config e aplicar via classes utilitárias.
-- [ ] Garantir uso estrito de `@/components/ui` (shadcn/ui) onde aplicável.
-- [ ] Remover mocks visuais inconsistentes ou sinalizar modo “preview”.
-
-**Entrega:** base visual consistente e compatível com o design system.
+**Entrega:** UI acessivel, responsiva e consistente.
 
 ---
 
-## Observações
-- As mudanças devem respeitar as regras do projeto em `AGENTS.md`.
-- Não usar `any` sem justificativa; remover `console.log` e TODOs antes do deploy final.
-- Preferir commits separados por fase (segurança / UI).
+### Fase 4 — Design System e Build
+**Prioridade:** Media
+
+- [x] Migrar Tailwind do CDN para build com `tailwind.config.*`.
+- [x] Consolidar tokens e padronizar `@/components/ui`.
+- [x] Remover classes dinamicas que nao sao detectadas no build (cores de categorias).
+
+**Entrega:** base visual consistente e escalavel.
+
+---
+
+## Observacoes
+- As mudancas devem respeitar `AGENTS.md`.
+- Evitar `console.log` e codigo comentado nas entregas finais.
+- Priorizar commits separados por fase.

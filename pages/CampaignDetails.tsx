@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../lib/firebase';
-import { doc, onSnapshot, collection, query, orderBy, limit } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, orderBy, limit, Timestamp } from 'firebase/firestore';
 
 interface Campaign {
     id: string;
@@ -13,8 +13,8 @@ interface Campaign {
         sent: number;
         failed: number;
     };
-    startedAt?: any;
-    completedAt?: any;
+    startedAt?: Timestamp | null;
+    completedAt?: Timestamp | null;
     lastContactIndex?: number;
 }
 
@@ -25,7 +25,7 @@ interface SendLog {
     status: 'sent' | 'failed';
     messageId?: string;
     errorMessage?: string;
-    sentAt: any;
+    sentAt: Timestamp | null;
 }
 
 export const CampaignDetails: React.FC = () => {

@@ -56,7 +56,6 @@ export function useDisconnectionHandler(): UseDisconnectionHandlerReturn {
         if (status === 'disconnected' && previousStatus === 'connected') {
             // Verifica se há campanhas ativas para pausar
             if (activeCampaigns.length > 0) {
-                console.log('[Story 2.3] Pausando campanhas ativas devido a desconexão...');
                 const paused = pauseActiveCampaigns('disconnected');
 
                 if (paused.length > 0) {
@@ -66,8 +65,6 @@ export function useDisconnectionHandler(): UseDisconnectionHandlerReturn {
                     // Auto-dismiss após 10 segundos
                     setTimeout(() => setShowToast(false), 10000);
                 }
-            } else {
-                console.log('[Story 2.3] Desconexão detectada, mas nenhuma campanha ativa para pausar.');
             }
         }
     }, [status, previousStatus, activeCampaigns.length, pauseActiveCampaigns]);
@@ -79,7 +76,6 @@ export function useDisconnectionHandler(): UseDisconnectionHandlerReturn {
         // Detecta reconexão
         if (status === 'connected' && previousStatus === 'disconnected') {
             if (pausedByDisconnection.length > 0) {
-                console.log('[Story 2.3] Reconectado! Retomando campanhas pausadas...');
                 resumePausedCampaigns();
 
                 // Limpa flag de desconexão

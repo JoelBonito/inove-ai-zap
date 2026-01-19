@@ -4,6 +4,9 @@ import { NavItem } from '../types';
 import { StatusIndicator } from './ui/StatusIndicator';
 import { useInstanceStatusContext } from '../hooks/useInstanceStatus';
 import { useUI } from '../hooks/useUI';
+import { useAuth } from '../hooks/useAuth';
+import { Sheet, SheetContent, SheetClose } from './ui/sheet';
+import { ThemeToggle } from './ThemeToggle';
 
 const navItems: NavItem[] = [
   {
@@ -38,37 +41,51 @@ const navItems: NavItem[] = [
   },
 ];
 
-const Sidebar = () => {
+interface SidebarContentProps {
+  isCollapsed: boolean;
+  onToggleCollapse?: () => void;
+  onNavigate?: () => void;
+  showCollapseToggle?: boolean;
+}
+
+const SidebarContent = ({
+  isCollapsed,
+  onToggleCollapse,
+  onNavigate,
+  showCollapseToggle = true,
+}: SidebarContentProps) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { isSidebarCollapsed, setIsSidebarCollapsed } = useUI();
+  const { logout, user } = useAuth();
 
   return (
-    <aside className={`${isSidebarCollapsed ? 'w-20' : 'w-64'} flex-shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-surface-dark flex flex-col justify-between transition-all duration-300 ease-in-out`}>
+    <div className="flex h-full flex-col justify-between">
       <div className="flex flex-col gap-6 p-4">
-        <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-center'} py-2 relative group cursor-pointer`}>
+        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-center'} py-2 relative group cursor-pointer`}>
           {/* Logo container with hover effect */}
           <div className="absolute inset-0 bg-primary/10 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
           <img
             src="/public/logo.jpg"
             alt="Inove AI Zap"
-            className={`${isSidebarCollapsed ? 'w-10' : 'w-20'} h-auto rounded-xl shadow-md object-contain relative z-10 transition-all duration-300 group-hover:scale-105`}
+            className={`${isCollapsed ? 'w-10' : 'w-20'} h-auto rounded-xl shadow-md object-contain relative z-10 transition-all duration-300 group-hover:scale-105`}
           />
         </div>
 
-        <div className="relative -mx-4">
-          <hr className="border-slate-200 dark:border-slate-700 mx-4" />
-          {/* Botão de toggle posicionado exatamente na borda direita da sidebar e no separador */}
-          <button
-            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 size-7 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary shadow-sm transition-all hover:scale-110 active:scale-95 z-30"
-            title={isSidebarCollapsed ? "Expandir Menu" : "Recolher Menu"}
-          >
-            <span className="material-symbols-outlined text-[18px]">
-              {isSidebarCollapsed ? 'chevron_right' : 'chevron_left'}
-            </span>
-          </button>
-        </div>
+        {showCollapseToggle && (
+          <div className="relative -mx-4">
+            <hr className="border-slate-200 dark:border-slate-700 mx-4" />
+            <button
+              onClick={onToggleCollapse}
+              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 size-7 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary shadow-sm transition-all hover:scale-110 active:scale-95 z-30"
+              title={isCollapsed ? "Expandir Menu" : "Recolher Menu"}
+              aria-label={isCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
+            >
+              <span className="material-symbols-outlined text-[18px]">
+                {isCollapsed ? 'chevron_right' : 'chevron_left'}
+              </span>
+            </button>
+          </div>
+        )}
         <nav className="flex flex-col gap-2">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
@@ -76,6 +93,7 @@ const Sidebar = () => {
               <Link
                 key={item.path}
                 to={item.path}
+                onClick={onNavigate}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all group relative overflow-hidden ${isActive
                   ? 'bg-gradient-to-r from-primary/10 to-primary/5 text-primary-dark dark:text-primary font-semibold shadow-sm'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white'
@@ -90,12 +108,12 @@ const Sidebar = () => {
                 >
                   {item.icon}
                 </span>
-                {!isSidebarCollapsed && (
+                {!isCollapsed && (
                   <span className={`text-sm tracking-wide ${isActive ? 'translate-x-1' : 'group-hover:translate-x-1'} transition-transform duration-300 whitespace-nowrap`}>
                     {item.label}
                   </span>
                 )}
-                {isSidebarCollapsed && (
+                {isCollapsed && (
                   /* Tooltip manual para quando estiver colapsado */
                   <div className="absolute left-full ml-4 px-2 py-1 bg-slate-900 text-white text-xs rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50">
                     {item.label}
@@ -107,39 +125,48 @@ const Sidebar = () => {
         </nav>
       </div>
       <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-        <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'gap-3'} w-full group relative`}>
+        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} w-full group relative`}>
           <div
-            className="size-9 rounded-full bg-slate-200 dark:bg-slate-700 bg-cover bg-center ring-2 ring-white dark:ring-slate-800 shadow-sm shrink-0"
-            style={{
-              backgroundImage:
-                "url('https://lh3.googleusercontent.com/aida-public/AB6AXuBqA7lgl7knnTWLEjpYJx1IIZP6588uJuI1q-NHWBkFIJMlDNbsL3cZymzQIyHXl1yRqqijGbhU8qIvHZHgRKcI_3Gfesw-aE8iD0i6SEC8b1zwdOjSu9HyZy61cNEMRGFaYR2vzyjh_wyw4lW5yYBNohVXsZysfjn36ZWW9pN7QNWlg5r6HWpynPAxXNX9xiBpqmeI0IAk78DzkesYpyeAw1eQG_xVXbUJqtqWx1BZ851Atppu9Eadt_oC2lwMGhyyHFwkfwXv2dqf')",
-            }}
-          ></div>
-          {!isSidebarCollapsed && (
+            className="size-9 rounded-full bg-slate-200 dark:bg-slate-700 bg-cover bg-center ring-2 ring-white dark:ring-slate-800 shadow-sm shrink-0 flex items-center justify-center text-slate-500 dark:text-slate-400 font-bold text-sm"
+            style={user?.avatarUrl ? {
+              backgroundImage: `url('${user.avatarUrl}')`,
+            } : undefined}
+          >
+            {!user?.avatarUrl && (user?.displayName?.[0]?.toUpperCase() || 'U')}
+          </div>
+          {!isCollapsed && (
             <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-sm font-bold text-slate-900 dark:text-white truncate">Alex Morgan</span>
-              <span className="text-xs text-slate-500 dark:text-slate-400 truncate">Líder de Marketing</span>
+              <span className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                {user?.displayName || 'Usuário'}
+              </span>
+              <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                {user?.email || ''}
+              </span>
             </div>
           )}
-          {!isSidebarCollapsed && (
+          {!isCollapsed && (
             <button
-              onClick={() => navigate('/login')}
+              onClick={async () => {
+                await logout();
+                navigate('/login');
+              }}
               className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors shrink-0"
               title="Sair"
+              aria-label="Sair"
             >
               <span className="material-symbols-outlined text-[20px]">logout</span>
             </button>
           )}
 
-          {isSidebarCollapsed && (
+          {isCollapsed && (
             <div className="absolute left-full ml-4 px-2 py-1 bg-slate-900 text-white text-xs rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50 flex flex-col gap-0.5">
-              <span className="font-bold">Alex Morgan</span>
-              <span className="text-[10px] text-slate-400">Líder de Marketing</span>
+              <span className="font-bold">{user?.displayName || 'Usuário'}</span>
+              <span className="text-[10px] text-slate-400">{user?.email || ''}</span>
             </div>
           )}
         </div>
       </div>
-    </aside>
+    </div>
   );
 };
 
@@ -149,7 +176,8 @@ const Header = () => {
   const { status, refresh, isLoading: instanceLoading } = useInstanceStatusContext();
   const {
     setIsNewCampaignModalOpen,
-    setIsNewContactModalOpen
+    setIsNewContactModalOpen,
+    setIsMobileNavOpen,
   } = useUI();
 
   const currentItem = navItems.find((item) => item.path === location.pathname);
@@ -201,16 +229,26 @@ const Header = () => {
       </div>
 
       <div className="flex items-center gap-4">
+        <button
+          onClick={() => setIsMobileNavOpen(true)}
+          className="lg:hidden p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          aria-label="Abrir menu"
+        >
+          <span className="material-symbols-outlined">menu</span>
+        </button>
+
         {/* Indicador de Status WhatsApp */}
         <button
           onClick={() => navigate('/connection')}
           className="flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
           title={status === 'connected' ? 'WhatsApp conectado' : 'Clique para conectar WhatsApp'}
+          aria-label="Ir para status do WhatsApp"
         >
           <StatusIndicator status={status} size="sm" showLabel={true} />
         </button>
 
-        <button className="relative p-2 text-slate-400 hover:text-primary dark:hover:text-white transition-colors rounded-full hover:bg-slate-50 dark:hover:bg-slate-800">
+        <ThemeToggle />
+        <button className="relative p-2 text-slate-400 hover:text-primary dark:hover:text-white transition-colors rounded-full hover:bg-slate-50 dark:hover:bg-slate-800" aria-label="Notificacoes">
           <span className="material-symbols-outlined">notifications</span>
           <span className="absolute top-1 right-2 size-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
         </button>
@@ -227,9 +265,34 @@ const Header = () => {
 };
 
 export const Layout = () => {
+  const { isSidebarCollapsed, setIsSidebarCollapsed, isMobileNavOpen, setIsMobileNavOpen } = useUI();
+
   return (
     <div className="flex h-screen w-full">
-      <Sidebar />
+      <aside className={`${isSidebarCollapsed ? 'w-20' : 'w-[230px]'} hidden lg:flex flex-shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-surface-dark transition-all duration-300 ease-in-out`}>
+        <SidebarContent
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        />
+      </aside>
+      <Sheet open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
+        <SheetContent className="p-0">
+          <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800">
+            <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">Menu</span>
+            <SheetClose
+              className="p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800"
+              aria-label="Fechar menu"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </SheetClose>
+          </div>
+          <SidebarContent
+            isCollapsed={false}
+            showCollapseToggle={false}
+            onNavigate={() => setIsMobileNavOpen(false)}
+          />
+        </SheetContent>
+      </Sheet>
       <main className="flex-1 flex flex-col h-full overflow-hidden relative">
         <Header />
         <div className="flex-1 overflow-y-auto p-8 bg-background-light dark:bg-background-dark">

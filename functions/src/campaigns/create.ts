@@ -1,30 +1,44 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
+import { z } from 'zod';
 import { scheduleCampaignStart } from './scheduler';
 
 if (!admin.apps.length) {
     admin.initializeApp();
 }
 
-interface CreateCampaignData {
-    name: string;
-    content: string;
-    targetCategoryIds?: string[];
-    targetContactList?: { name: string; phone: string }[];
-    targetContactIds?: string[];
-    status?: string;
-    scheduledAt?: string;
-    mediaUrl?: string;
-    mediaType?: string;
-}
+const createCampaignSchema = z.object({
+    name: z.string().min(1),
+    content: z.string().min(1),
+    targetCategoryIds: z.array(z.string().min(1)).optional(),
+    targetContactList: z.array(z.object({
+        name: z.string().optional(),
+        phone: z.string().min(1),
+    })).optional(),
+    targetContactIds: z.array(z.string().min(1)).optional(),
+    status: z.string().optional(),
+    scheduledAt: z.string().optional().nullable(),
+    mediaUrl: z.string().url().optional().nullable(),
+    mediaType: z.enum(['image', 'video', 'document']).optional().nullable(),
+}).refine((data) => {
+    return (data.targetCategoryIds && data.targetCategoryIds.length > 0)
+        || (data.targetContactList && data.targetContactList.length > 0)
+        || (data.targetContactIds && data.targetContactIds.length > 0);
+}, { message: 'Deve informar categorias, lista rapida ou contatos selecionados.' });
 
 /**
  * Cria uma nova campanha.
  * Se houver scheduledAt, agenda a Cloud Task.
  */
-export const createCampaign = onCall<CreateCampaignData>(async (request) => {
+export const createCampaign = onCall(async (request) => {
     if (!request.auth) {
         throw new HttpsError('unauthenticated', 'User must be logged in');
+    }
+
+    const parsed = createCampaignSchema.safeParse(request.data);
+    if (!parsed.success) {
+        throw new HttpsError('invalid-argument', 'Payload invalido');
     }
 
     const {
@@ -37,7 +51,7 @@ export const createCampaign = onCall<CreateCampaignData>(async (request) => {
         scheduledAt, // Timestamp or ISO string
         mediaUrl,
         mediaType
-    } = request.data;
+    } = parsed.data;
 
     const ownerId = request.auth.uid; // Assuming direct owner or logic to get tenant ID
 
@@ -131,7 +145,7 @@ export const createCampaign = onCall<CreateCampaignData>(async (request) => {
         };
 
         if (scheduleDate) {
-            taskId = await scheduleCampaignStart(campaignRef.id, scheduleDate, ownerId);
+            taskId = await scheduleCampaignStart(campaignRef.id, scheduleDate);
             if (taskId) {
                 campaignData.taskId = taskId;
             }
@@ -141,7 +155,7 @@ export const createCampaign = onCall<CreateCampaignData>(async (request) => {
 
         return { id: campaignRef.id, status: initialStatus };
     } catch (error) {
-        console.error('Error creating campaign:', error);
+        logger.error('Erro ao criar campanha', error);
         throw new HttpsError('internal', 'Unable to create campaign');
     }
 });

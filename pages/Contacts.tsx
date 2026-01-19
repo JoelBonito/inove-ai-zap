@@ -7,6 +7,7 @@ import { ImportContactsModal } from '../components/ui/ImportContactsModal';
 import { CategoryModal, DeleteCategoryModal } from '../components/ui/CategoryModal';
 import { ContactModal } from '../components/ui/ContactModal';
 import { DeleteContactModal } from '../components/ui/DeleteContactModal';
+import { CATEGORY_COLOR_CLASSES, DEFAULT_BADGE_CLASSES } from '../lib/categoryColors';
 
 const Contacts = () => {
   // Story 3.1 - Hook de gerenciamento de contatos
@@ -131,7 +132,15 @@ const Contacts = () => {
     if (editingContact) {
       await updateContact(editingContact.id, data);
     } else {
-      await addContact(data as any); // Type assertion necessário pois Omit ainda não é perfeitamente inferido
+      const payload: Omit<Contact, 'id' | 'initials' | 'color'> = {
+        name: data.name || '',
+        email: data.email || '',
+        phone: data.phone || '',
+        tags: data.tags || [],
+        categoryIds: data.categoryIds || [],
+        lastCampaign: data.lastCampaign,
+      };
+      await addContact(payload);
     }
   };
 
@@ -157,7 +166,7 @@ const Contacts = () => {
     setEditingCategory(undefined);
   };
 
-  const handleSaveCategory = async (name: string, color: any) => {
+  const handleSaveCategory = async (name: string, color: Category['color']) => {
     if (editingCategory) {
       await updateCategory(editingCategory.id, { name, color });
     } else {
@@ -188,8 +197,7 @@ const Contacts = () => {
     // Procura a categoria pelo nome para usar a cor correta
     const category = categories.find(c => c.name === tag);
     if (category) {
-      const color = category.color;
-      return `bg-${color}-50 text-${color}-700 dark:bg-${color}-900/30 dark:text-${color}-300 border-${color}-100 dark:border-${color}-800/50`;
+      return CATEGORY_COLOR_CLASSES[category.color]?.badge || DEFAULT_BADGE_CLASSES;
     }
 
     // Fallback para tags conhecidas
@@ -207,7 +215,7 @@ const Contacts = () => {
       case 'Importado':
         return 'bg-cyan-50 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300 border-cyan-100 dark:border-cyan-800/50';
       default:
-        return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700';
+        return DEFAULT_BADGE_CLASSES;
     }
   };
 
@@ -342,7 +350,7 @@ const Contacts = () => {
                       }`}
                   >
                     <span className="flex items-center gap-2">
-                      <span className={`size-2 rounded-full bg-${cat.color}-500`}></span>
+                      <span className={`size-2 rounded-full ${CATEGORY_COLOR_CLASSES[cat.color]?.dot || 'bg-slate-500'}`}></span>
                       <span className="truncate">{cat.name}</span>
                     </span>
 
@@ -359,6 +367,7 @@ const Contacts = () => {
                       }}
                       className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
                       title="Editar"
+                      aria-label="Editar categoria"
                     >
                       <span className="material-symbols-outlined text-[16px]">edit</span>
                     </button>
@@ -369,6 +378,7 @@ const Contacts = () => {
                       }}
                       className="p-1 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
                       title="Excluir"
+                      aria-label="Excluir categoria"
                     >
                       <span className="material-symbols-outlined text-[16px]">delete</span>
                     </button>
@@ -436,6 +446,7 @@ const Contacts = () => {
                 <button
                   className="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
                   title="Filtros Avançados"
+                  aria-label="Filtros avancados"
                 >
                   <span className="material-symbols-outlined text-[20px]">
                     filter_list
@@ -444,6 +455,7 @@ const Contacts = () => {
                 <button
                   className="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors border border-transparent hover:border-slate-200"
                   title="Exportar CSV"
+                  aria-label="Exportar contatos em CSV"
                 >
                   <span className="material-symbols-outlined text-[20px]">
                     download
@@ -494,7 +506,7 @@ const Contacts = () => {
                             }}
                             className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
                           >
-                            <span className={`size-2 rounded-full bg-${cat.color}-500`}></span>
+                            <span className={`size-2 rounded-full ${CATEGORY_COLOR_CLASSES[cat.color]?.dot || 'bg-slate-500'}`}></span>
                             {cat.name}
                           </button>
                         ))}
@@ -568,7 +580,7 @@ const Contacts = () => {
                       <td className="p-4 overflow-hidden max-w-[200px]">
                         <div className="flex items-center gap-3 overflow-hidden">
                           <div
-                            className={`size-8 rounded-full bg-${contact.color}-100 text-${contact.color}-600 flex items-center justify-center text-xs font-bold flex-shrink-0`}
+                            className={`size-8 rounded-full ${CATEGORY_COLOR_CLASSES[contact.color]?.avatarBg || 'bg-slate-200'} ${CATEGORY_COLOR_CLASSES[contact.color]?.avatarText || 'text-slate-600'} flex items-center justify-center text-xs font-bold flex-shrink-0`}
                           >
                             {contact.initials}
                           </div>
@@ -596,9 +608,9 @@ const Contacts = () => {
                             return (
                               <span
                                 key={catId}
-                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border bg-${cat.color}-50 dark:bg-${cat.color}-900/30 text-${cat.color}-700 dark:text-${cat.color}-300 border-${cat.color}-100 dark:border-${cat.color}-800/50`}
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border ${CATEGORY_COLOR_CLASSES[cat.color]?.badge || DEFAULT_BADGE_CLASSES}`}
                               >
-                                <span className={`size-1.5 rounded-full bg-${cat.color}-500 flex-shrink-0`}></span>
+                                <span className={`size-1.5 rounded-full ${CATEGORY_COLOR_CLASSES[cat.color]?.dot || 'bg-slate-500'} flex-shrink-0`}></span>
                                 <span className="truncate max-w-[100px]">{cat.name}</span>
                               </span>
                             );
@@ -640,6 +652,7 @@ const Contacts = () => {
                             onClick={() => handleEditContact(contact)}
                             className="text-slate-400 hover:text-blue-500 p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                             title="Editar Contato"
+                            aria-label="Editar contato"
                           >
                             <span className="material-symbols-outlined text-[20px]">
                               edit
@@ -650,6 +663,7 @@ const Contacts = () => {
                             onClick={() => handleDeleteContactClick(contact)}
                             className="text-slate-400 hover:text-red-500 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                             title="Excluir Contato"
+                            aria-label="Excluir contato"
                           >
                             <span className="material-symbols-outlined text-[20px]">
                               delete
@@ -665,11 +679,11 @@ const Contacts = () => {
             <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <span className="text-xs text-slate-500 dark:text-slate-400">
                 Mostrando{' '}
-                <span className="font-medium text-slate-900 dark:text-white">1</span>{' '}
-                a <span className="font-medium text-slate-900 dark:text-white">5</span>{' '}
+                <span className="font-medium text-slate-900 dark:text-white">{filteredContacts.length > 0 ? 1 : 0}</span>{' '}
+                a <span className="font-medium text-slate-900 dark:text-white">{Math.min(filteredContacts.length, 10)}</span>{' '}
                 de{' '}
                 <span className="font-medium text-slate-900 dark:text-white">
-                  12,450
+                  {filteredContacts.length.toLocaleString('pt-BR')}
                 </span>{' '}
                 contatos
               </span>
@@ -677,12 +691,16 @@ const Contacts = () => {
                 <button
                   className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   disabled
+                  aria-label="Pagina anterior"
                 >
                   <span className="material-symbols-outlined text-[20px]">
                     chevron_left
                   </span>
                 </button>
-                <button className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                <button
+                  className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                  aria-label="Proxima pagina"
+                >
                   <span className="material-symbols-outlined text-[20px]">
                     chevron_right
                   </span>

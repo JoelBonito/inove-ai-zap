@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useCategories } from '../../hooks/useCategories';
 import { useContacts } from '../../hooks/useContacts'; // Story 5.1
 import { useCampaignsContext } from '../../hooks/useCampaigns';
-import { Category } from '../../types';
 import { SpintaxGeneratorModal } from './SpintaxGeneratorModal';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
+import { CATEGORY_COLOR_CLASSES } from '../../lib/categoryColors';
 
 interface NewCampaignModalProps {
     isOpen: boolean;
@@ -228,36 +229,27 @@ export const NewCampaignModal: React.FC<NewCampaignModalProps> = ({
     const totalContacts = getEstimatedContacts();
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-                onClick={onClose}
-            />
-
-            {/* Modal Container */}
-            <div className="relative bg-white dark:bg-surface-dark rounded-2xl shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-
-                {/* Header */}
-                <div className="px-8 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-surface-dark shrink-0">
+        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+            <DialogContent className="max-w-4xl h-[90vh] p-0 overflow-hidden flex flex-col">
+                <DialogHeader className="px-8 py-5 border-b border-slate-100 dark:border-slate-800 flex flex-row items-center justify-between space-y-0 bg-white dark:bg-surface-dark shrink-0">
                     <div>
-                        <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <DialogTitle className="text-xl font-bold flex items-center gap-2">
                             <span className="material-symbols-outlined text-primary">campaign</span>
                             Nova Campanha
-                        </h2>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                        </DialogTitle>
+                        <DialogDescription className="mt-0.5">
                             Etapa {step} de 3: {step === 1 ? 'Configuração' : step === 2 ? 'Mensagem' : 'Revisão'}
-                        </p>
+                        </DialogDescription>
                     </div>
                     <button
                         onClick={onClose}
                         className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+                        aria-label="Fechar modal"
                     >
                         <span className="material-symbols-outlined text-[24px]">close</span>
                     </button>
-                </div>
+                </DialogHeader>
 
-                {/* Content */}
                 <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50 dark:bg-[#0B1120]">
 
                     {/* STEP 1: CONFIGURAÇÃO */}
@@ -352,7 +344,7 @@ export const NewCampaignModal: React.FC<NewCampaignModalProps> = ({
                                                 </div>
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-2 mb-1">
-                                                        <span className={`size-2.5 rounded-full bg-${category.color}-500`}></span>
+                                                        <span className={`size-2.5 rounded-full ${CATEGORY_COLOR_CLASSES[category.color]?.dot || 'bg-slate-500'}`}></span>
                                                         <span className="font-semibold text-sm text-slate-900 dark:text-white">{category.name}</span>
                                                     </div>
                                                     <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -495,6 +487,7 @@ export const NewCampaignModal: React.FC<NewCampaignModalProps> = ({
                                                 onClick={() => insertVariable('*')}
                                                 className="p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors"
                                                 title="Negrito"
+                                                aria-label="Inserir negrito"
                                             >
                                                 <span className="material-symbols-outlined text-[20px]">format_bold</span>
                                             </button>
@@ -502,6 +495,7 @@ export const NewCampaignModal: React.FC<NewCampaignModalProps> = ({
                                                 onClick={() => insertVariable('_')}
                                                 className="p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors"
                                                 title="Itálico"
+                                                aria-label="Inserir italico"
                                             >
                                                 <span className="material-symbols-outlined text-[20px]">format_italic</span>
                                             </button>
@@ -509,6 +503,7 @@ export const NewCampaignModal: React.FC<NewCampaignModalProps> = ({
                                                 onClick={() => insertVariable('~')}
                                                 className="p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors"
                                                 title="Tachado"
+                                                aria-label="Inserir tachado"
                                             >
                                                 <span className="material-symbols-outlined text-[20px]">format_strikethrough</span>
                                             </button>
@@ -588,6 +583,7 @@ export const NewCampaignModal: React.FC<NewCampaignModalProps> = ({
                                             <button
                                                 onClick={removeMedia}
                                                 className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all backdrop-blur-sm"
+                                                aria-label="Remover midia"
                                             >
                                                 <span className="material-symbols-outlined text-sm">close</span>
                                             </button>
@@ -725,8 +721,7 @@ export const NewCampaignModal: React.FC<NewCampaignModalProps> = ({
 
                 </div>
 
-                {/* Footer Actions */}
-                <div className="p-5 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-surface-dark flex justify-between items-center shrink-0">
+                <DialogFooter className="p-5 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-surface-dark flex justify-between items-center shrink-0">
                     <button
                         onClick={handleBack}
                         disabled={step === 1}
@@ -769,8 +764,8 @@ export const NewCampaignModal: React.FC<NewCampaignModalProps> = ({
                             </button>
                         )}
                     </div>
-                </div>
-            </div>
+                </DialogFooter>
+            </DialogContent>
 
             <SpintaxGeneratorModal
                 isOpen={isAiModalOpen}
@@ -778,6 +773,6 @@ export const NewCampaignModal: React.FC<NewCampaignModalProps> = ({
                 onInsert={handleAiInsert}
                 baseText={message}
             />
-        </div>
+        </Dialog>
     );
 };

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 
 interface SpintaxGeneratorModalProps {
     isOpen: boolean;
@@ -64,29 +65,19 @@ export const SpintaxGeneratorModal: React.FC<SpintaxGeneratorModalProps> = ({
         }
     };
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-            <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-                onClick={onClose}
-            />
-
-            <div className="relative bg-white dark:bg-surface-dark rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-200 dark:border-slate-800">
-
-                {/* Header */}
-                <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+            <DialogContent className="max-w-lg p-0 overflow-hidden">
+                <DialogHeader className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+                    <DialogTitle className="text-lg font-bold flex items-center gap-2">
                         <span className="material-symbols-outlined text-purple-600">auto_awesome</span>
                         IA Spintax Generator
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    </DialogTitle>
+                    <DialogDescription className="text-xs mt-1">
                         Crie variações automáticas da sua mensagem para evitar bloqueios.
-                    </p>
-                </div>
+                    </DialogDescription>
+                </DialogHeader>
 
-                {/* Content */}
                 <div className="p-6 space-y-4">
                     <div className="space-y-2">
                         <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -117,8 +108,7 @@ export const SpintaxGeneratorModal: React.FC<SpintaxGeneratorModalProps> = ({
                     )}
                 </div>
 
-                {/* Footer */}
-                <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30 flex justify-end gap-3">
+                <DialogFooter className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30">
                     <button
                         onClick={onClose}
                         className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors"
@@ -153,9 +143,8 @@ export const SpintaxGeneratorModal: React.FC<SpintaxGeneratorModalProps> = ({
                             Usar Variação
                         </button>
                     )}
-                </div>
-
-            </div>
-        </div>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 };

@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Contact } from '../types';
-import { db, auth } from '../lib/firebase';
+import { db } from '../lib/firebase';
 import { collection, query, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDocs, writeBatch } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from './useAuth';
 
 // Tipos específicos para importação
 export interface ImportedContact {
@@ -53,32 +54,6 @@ interface UseContactsReturn {
     selectAllContacts: () => void;
     clearSelection: () => void;
 }
-
-// Dados mock iniciais
-const mockContacts: Contact[] = [
-    {
-        id: '1',
-        initials: 'RM',
-        name: 'Ricardo Menezes',
-        email: 'ricardo.m@empresa.com',
-        phone: '+5511988776655',
-        tags: ['Lead Quente', 'SP'],
-        categoryIds: ['cat_lead_quente'],
-        lastCampaign: { name: 'Black Friday 2023', date: '24 Out, 14:30' },
-        color: 'blue',
-    },
-    {
-        id: '2',
-        initials: 'AL',
-        name: 'Ana Luiza Silva',
-        email: 'ana.silva@gmail.com',
-        phone: '+5521999887766',
-        tags: ['Vendas'],
-        categoryIds: ['cat_vendas'],
-        lastCampaign: { name: 'Promoção Natal', date: 'Ontem, 09:15' },
-        color: 'emerald',
-    },
-];
 
 /**
  * Sanitiza número de telefone para formato E.164
@@ -307,53 +282,60 @@ function extractGoogleName(row: string[], nameColumns: number[]): string {
  * Story 3.2 - Sanitização Automática de Telefones
  */
 export function useContacts(): UseContactsReturn {
-    const [contacts, setContacts] = useState<Contact[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [currentUser, setCurrentUser] = useState<any>(null);
-
-    // Auth Listener
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            setCurrentUser(user);
-            if (!user) {
-                setContacts([]);
-                setIsLoading(false);
-            }
-        });
-        return () => unsubscribe();
-    }, []);
-
-    // Firestore Listener
-    useEffect(() => {
-        if (!currentUser) return;
-
-        setIsLoading(true);
-        const q = query(collection(db, 'clients', currentUser.uid, 'contacts'), orderBy('createdAt', 'desc'));
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const loadedContacts = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            } as Contact));
-            setContacts(loadedContacts);
-            setIsLoading(false);
-        }, (err) => {
-            console.error("Error fetching contacts:", err);
-            setError("Erro ao carregar contatos.");
-            setIsLoading(false);
-        });
-
-        return () => unsubscribe();
-    }, [currentUser]);
+    const { user } = useAuth();
+    const queryClient = useQueryClient();
+    const [isBusy, setIsBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [importResult, setImportResult] = useState<ImportResult | null>(null);
     const [parseProgress, setParseProgress] = useState<ParseProgress | null>(null);
+
+    const contactsQuery = useQuery({
+        queryKey: ['contacts', user?.id],
+        enabled: Boolean(user?.id),
+        queryFn: async () => {
+            if (!user?.id) return [];
+            const q = query(collection(db, 'clients', user.id, 'contacts'), orderBy('createdAt', 'desc'));
+            const snapshot = await getDocs(q);
+            return snapshot.docs.map((docSnapshot) => {
+                const data = docSnapshot.data() as Contact;
+                return {
+                    ...data,
+                    id: docSnapshot.id,
+                    initials: data.initials || generateInitials(data.name),
+                    color: data.color || generateColor(data.name),
+                };
+            });
+        },
+        initialData: [],
+    });
+
+    useEffect(() => {
+        if (!user?.id) return;
+
+        const q = query(collection(db, 'clients', user.id, 'contacts'), orderBy('createdAt', 'desc'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const loadedContacts = snapshot.docs.map((docSnapshot) => {
+                const data = docSnapshot.data() as Contact;
+                return {
+                    ...data,
+                    id: docSnapshot.id,
+                    initials: data.initials || generateInitials(data.name),
+                    color: data.color || generateColor(data.name),
+                };
+            });
+            queryClient.setQueryData(['contacts', user.id], loadedContacts);
+        }, () => {
+            setError('Erro ao carregar contatos.');
+        });
+
+        return () => unsubscribe();
+    }, [queryClient, user?.id]);
 
     /**
      * Parse e valida arquivo de contatos
      */
     const parseFile = useCallback(async (file: File): Promise<ImportResult> => {
-        setIsLoading(true);
+        setIsBusy(true);
         setError(null);
         setParseProgress({ stage: 'reading', percent: 10, message: 'Lendo arquivo...' });
 
@@ -373,9 +355,6 @@ export function useContacts(): UseContactsReturn {
             // Detectar formato e mapear colunas
             const mapping = detectColumnMapping(headers);
 
-            console.log('[Story 3.1] Formato detectado:', mapping.type);
-            console.log('[Story 3.1] Headers:', headers.slice(0, 10));
-            console.log('[Story 3.1] Phone columns:', mapping.phoneColumns);
 
             if (mapping.phoneColumns.length === 0) {
                 throw new Error('Coluna de telefone não encontrada. Colunas disponíveis: ' + headers.slice(0, 10).join(', '));
@@ -446,9 +425,8 @@ export function useContacts(): UseContactsReturn {
 
             setImportResult(result);
             setParseProgress({ stage: 'complete', percent: 100, message: 'Análise concluída!' });
-            setIsLoading(false);
+            setIsBusy(false);
 
-            console.log('[Story 3.1] Importação analisada:', result);
 
             return result;
 
@@ -456,7 +434,7 @@ export function useContacts(): UseContactsReturn {
             const errorMessage = err instanceof Error ? err.message : 'Erro ao processar arquivo';
             setError(errorMessage);
             setParseProgress({ stage: 'error', percent: 0, message: errorMessage });
-            setIsLoading(false);
+            setIsBusy(false);
             throw err;
         }
     }, []);
@@ -465,35 +443,40 @@ export function useContacts(): UseContactsReturn {
      * Confirma importação e adiciona contatos à lista
      */
     const confirmImport = useCallback(async (categoryId?: string) => {
-        if (!importResult) return;
+        if (!importResult || !user?.id) return;
 
-        setIsLoading(true);
+        setIsBusy(true);
 
         try {
-            // Converter para formato Contact
-            const newContacts: Contact[] = importResult.contacts.map((imported, index) => ({
-                id: `imported_${Date.now()}_${index}`,
-                name: imported.name,
-                phone: imported.phone,
-                email: imported.email || '',
-                initials: generateInitials(imported.name),
-                color: generateColor(imported.name),
-                tags: categoryId ? [categoryId] : ['Importado'],
-            }));
+            const batch = writeBatch(db);
+            const contactsRef = collection(db, 'clients', user.id, 'contacts');
 
-            // Adicionar aos contatos existentes
-            setContacts(prev => [...newContacts, ...prev]);
+            importResult.contacts.forEach((imported) => {
+                const docRef = doc(contactsRef);
+                batch.set(docRef, {
+                    name: imported.name,
+                    phone: imported.phone,
+                    email: imported.email || '',
+                    initials: generateInitials(imported.name),
+                    color: generateColor(imported.name),
+                    tags: [],
+                    categoryIds: categoryId ? [categoryId] : [],
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp(),
+                });
+            });
+
+            await batch.commit();
 
             // Limpar estado de importação
             setImportResult(null);
             setParseProgress(null);
 
-            console.log(`[Story 3.1] ${newContacts.length} contatos importados com sucesso!`);
 
         } finally {
-            setIsLoading(false);
+            setIsBusy(false);
         }
-    }, [importResult]);
+    }, [importResult, user?.id]);
 
     /**
      * Cancela importação em andamento
@@ -508,10 +491,10 @@ export function useContacts(): UseContactsReturn {
      * Adiciona contato individual
      */
     const addContact = useCallback(async (contactData: Omit<Contact, 'id' | 'initials' | 'color'>) => {
-        if (!currentUser) return;
+        if (!user?.id) return;
 
         try {
-            await addDoc(collection(db, 'clients', currentUser.uid, 'contacts'), {
+            await addDoc(collection(db, 'clients', user.id, 'contacts'), {
                 ...contactData,
                 initials: generateInitials(contactData.name),
                 color: generateColor(contactData.name),
@@ -519,39 +502,39 @@ export function useContacts(): UseContactsReturn {
                 updatedAt: serverTimestamp()
             });
         } catch (err) {
-            console.error("Error adding contact:", err);
+            setError('Erro ao adicionar contato.');
             throw err;
         }
-    }, [currentUser]);
+    }, [user?.id]);
 
     /**
      * Atualiza contato existente
      */
     const updateContact = useCallback(async (id: string, data: Partial<Contact>) => {
-        if (!currentUser) return;
+        if (!user?.id) return;
         try {
-            await updateDoc(doc(db, 'clients', currentUser.uid, 'contacts', id), {
+            await updateDoc(doc(db, 'clients', user.id, 'contacts', id), {
                 ...data,
                 updatedAt: serverTimestamp()
             });
         } catch (err) {
-            console.error("Error updating contact:", err);
+            setError('Erro ao atualizar contato.');
             throw err;
         }
-    }, [currentUser]);
+    }, [user?.id]);
 
     /**
      * Remove contato
      */
     const deleteContact = useCallback(async (id: string) => {
-        if (!currentUser) return;
+        if (!user?.id) return;
         try {
-            await deleteDoc(doc(db, 'clients', currentUser.uid, 'contacts', id));
+            await deleteDoc(doc(db, 'clients', user.id, 'contacts', id));
         } catch (err) {
-            console.error("Error deleting contact:", err);
+            setError('Erro ao excluir contato.');
             throw err;
         }
-    }, [currentUser]);
+    }, [user?.id]);
 
     // Story 3.4 - Estado de seleção
     const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
@@ -571,8 +554,8 @@ export function useContacts(): UseContactsReturn {
      * Seleciona todos os contatos
      */
     const selectAllContacts = useCallback(() => {
-        setSelectedContacts(contacts.map(c => c.id));
-    }, [contacts]);
+        setSelectedContacts(contactsQuery.data.map(c => c.id));
+    }, [contactsQuery.data]);
 
     /**
      * Limpa seleção
@@ -586,56 +569,66 @@ export function useContacts(): UseContactsReturn {
      * Adiciona categoryId ao array de categoryIds dos contatos selecionados
      */
     const assignCategory = useCallback(async (contactIds: string[], categoryId: string) => {
-        setContacts(prev => prev.map(contact => {
-            if (!contactIds.includes(contact.id)) return contact;
+        if (!user?.id) return;
+        const batch = writeBatch(db);
 
-            const currentCategories = contact.categoryIds || [];
-            if (currentCategories.includes(categoryId)) return contact;
+        contactIds.forEach((contactId) => {
+            const contactRef = doc(db, 'clients', user.id, 'contacts', contactId);
+            const existing = contactsQuery.data.find((contact) => contact.id === contactId);
+            const currentCategories = existing?.categoryIds || [];
+            if (currentCategories.includes(categoryId)) return;
 
-            return {
-                ...contact,
+            batch.update(contactRef, {
                 categoryIds: [...currentCategories, categoryId],
-            };
-        }));
+                updatedAt: serverTimestamp(),
+            });
+        });
 
-        console.log(`[Story 3.4] Categoria ${categoryId} atribuída a ${contactIds.length} contatos`);
-    }, []);
+        await batch.commit();
+    }, [contactsQuery.data, user?.id]);
 
     /**
      * Story 3.4 - Remove categoria de contatos
      */
     const removeCategory = useCallback(async (contactIds: string[], categoryId: string) => {
-        setContacts(prev => prev.map(contact => {
-            if (!contactIds.includes(contact.id)) return contact;
+        if (!user?.id) return;
+        const batch = writeBatch(db);
 
-            return {
-                ...contact,
-                categoryIds: (contact.categoryIds || []).filter(id => id !== categoryId),
-            };
-        }));
+        contactIds.forEach((contactId) => {
+            const contactRef = doc(db, 'clients', user.id, 'contacts', contactId);
+            const existing = contactsQuery.data.find((contact) => contact.id === contactId);
+            const currentCategories = existing?.categoryIds || [];
 
-        console.log(`[Story 3.4] Categoria ${categoryId} removida de ${contactIds.length} contatos`);
-    }, []);
+            batch.update(contactRef, {
+                categoryIds: currentCategories.filter((id) => id !== categoryId),
+                updatedAt: serverTimestamp(),
+            });
+        });
+
+        await batch.commit();
+    }, [contactsQuery.data, user?.id]);
 
     /**
      * Story 3.4 - Define categorias de contatos (substitui todas)
      */
     const setCategoryForContacts = useCallback(async (contactIds: string[], categoryIds: string[]) => {
-        setContacts(prev => prev.map(contact => {
-            if (!contactIds.includes(contact.id)) return contact;
+        if (!user?.id) return;
+        const batch = writeBatch(db);
 
-            return {
-                ...contact,
+        contactIds.forEach((contactId) => {
+            const contactRef = doc(db, 'clients', user.id, 'contacts', contactId);
+            batch.update(contactRef, {
                 categoryIds,
-            };
-        }));
+                updatedAt: serverTimestamp(),
+            });
+        });
 
-        console.log(`[Story 3.4] Categorias atualizadas para ${contactIds.length} contatos`);
-    }, []);
+        await batch.commit();
+    }, [user?.id]);
 
     return {
-        contacts,
-        isLoading,
+        contacts: contactsQuery.data,
+        isLoading: contactsQuery.isLoading || isBusy,
         error,
         importResult,
         parseProgress,
