@@ -327,54 +327,57 @@ const Contacts = () => {
                 </span>
               </button>
               {/* Story 3.3 - Lista de categorias do context */}
-              {categories.map((cat) => (
-                <div
-                  key={cat.id}
-                  className="group relative"
-                >
-                  <button
-                    onClick={() => setSelectedCategoryId(selectedCategoryId === cat.id ? null : cat.id)}
-                    className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors ${selectedCategoryId === cat.id
-                      ? 'bg-primary/10 text-primary-dark dark:text-primary'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-                      }`}
+              {categories.map((cat) => {
+                const realCount = contacts.filter(c => c.categoryIds?.includes(cat.id)).length;
+                return (
+                  <div
+                    key={cat.id}
+                    className="group relative"
                   >
-                    <span className="flex items-center gap-2">
-                      <span className={`size-2 rounded-full ${CATEGORY_COLOR_CLASSES[cat.color]?.dot || 'bg-slate-500'}`}></span>
-                      <span className="truncate">{cat.name}</span>
-                    </span>
+                    <button
+                      onClick={() => setSelectedCategoryId(selectedCategoryId === cat.id ? null : cat.id)}
+                      className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors ${selectedCategoryId === cat.id
+                        ? 'bg-primary/10 text-primary-dark dark:text-primary'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className={`size-2 rounded-full ${CATEGORY_COLOR_CLASSES[cat.color]?.dot || 'bg-slate-500'}`}></span>
+                        <span className="truncate">{cat.name}</span>
+                      </span>
 
-                    <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full text-xs text-slate-500 group-hover:hidden">
-                      {cat.contactCount.toLocaleString('pt-BR')}
-                    </span>
-                  </button>
-                  {/* Dropdown de ações */}
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden group-hover:flex gap-1 bg-white dark:bg-surface-dark pl-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditCategory(cat);
-                      }}
-                      className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
-                      title="Editar"
-                      aria-label="Editar categoria"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">edit</span>
+                      <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full text-xs text-slate-500 group-hover:hidden">
+                        {realCount.toLocaleString('pt-BR')}
+                      </span>
                     </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenDeleteCategory(cat);
-                      }}
-                      className="p-1 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
-                      title="Excluir"
-                      aria-label="Excluir categoria"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">delete</span>
-                    </button>
+                    {/* Dropdown de ações */}
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden group-hover:flex gap-1 bg-white dark:bg-surface-dark pl-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditCategory(cat);
+                        }}
+                        className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
+                        title="Editar"
+                        aria-label="Editar categoria"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">edit</span>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenDeleteCategory(cat);
+                        }}
+                        className="p-1 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
+                        title="Excluir"
+                        aria-label="Excluir categoria"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </nav>
             <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
               <button
