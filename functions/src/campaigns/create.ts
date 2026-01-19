@@ -11,12 +11,12 @@ if (!admin.apps.length) {
 const createCampaignSchema = z.object({
     name: z.string().min(1),
     content: z.string().min(1),
-    targetCategoryIds: z.array(z.string().min(1)).optional(),
+    targetCategoryIds: z.array(z.string().min(1)).optional().nullable(),
     targetContactList: z.array(z.object({
         name: z.string().optional(),
         phone: z.string().min(1),
-    })).optional(),
-    targetContactIds: z.array(z.string().min(1)).optional(),
+    })).optional().nullable(),
+    targetContactIds: z.array(z.string().min(1)).optional().nullable(),
     status: z.string().optional(),
     scheduledAt: z.string().optional().nullable(),
     mediaUrl: z.string().url().optional().nullable(),
@@ -38,7 +38,8 @@ export const createCampaign = onCall(async (request) => {
 
     const parsed = createCampaignSchema.safeParse(request.data);
     if (!parsed.success) {
-        throw new HttpsError('invalid-argument', 'Payload invalido');
+        logger.warn('Validation failed:', parsed.error.errors);
+        throw new HttpsError('invalid-argument', `Payload invalido: ${parsed.error.errors.map(e => e.message).join(', ')}`);
     }
 
     const {

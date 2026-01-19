@@ -148,6 +148,11 @@ export const NewCampaignModal: React.FC<NewCampaignModalProps> = ({
         }
 
 
+        if (finalTotalContacts === 0) {
+            alert('Selecione pelo menos um contato, categoria ou lista válida para envio.');
+            return;
+        }
+
         addCampaign({
             name,
             targetCategoryIds: audienceType === 'categories' ? selectedCategoryIds : undefined,
