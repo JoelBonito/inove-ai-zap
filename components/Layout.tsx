@@ -71,20 +71,8 @@ const SidebarContent = ({
           />
         </div>
 
-        {showCollapseToggle && (
-          <div className="flex justify-end px-2 py-1">
-            <button
-              onClick={onToggleCollapse}
-              className="size-7 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary hover:bg-white dark:hover:bg-slate-700 shadow-sm transition-all hover:scale-110 active:scale-95"
-              title={isCollapsed ? "Expandir Menu" : "Recolher Menu"}
-              aria-label={isCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
-            >
-              <span className="material-symbols-outlined text-[18px]">
-                {isCollapsed ? 'chevron_right' : 'chevron_left'}
-              </span>
-            </button>
-          </div>
-        )}
+        <hr className="border-slate-200 dark:border-slate-700 mx-2" />
+
         <nav className="flex flex-col gap-2">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
@@ -278,14 +266,28 @@ export const Layout = () => {
 
   return (
     <div className="flex h-screen w-full">
-      <aside className={`${isSidebarCollapsed ? 'w-20' : 'w-[230px]'} hidden lg:flex flex-shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-surface-dark transition-all duration-300 ease-in-out overflow-hidden`}>
-        <div className={`${isSidebarCollapsed ? 'w-20' : 'w-[230px]'} flex flex-col h-full`}>
-          <SidebarContent
-            isCollapsed={isSidebarCollapsed}
-            onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          />
-        </div>
-      </aside>
+      {/* Sidebar com botão de toggle na borda */}
+      <div className="relative hidden lg:flex flex-shrink-0">
+        <aside className={`${isSidebarCollapsed ? 'w-20' : 'w-[230px]'} flex border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-surface-dark transition-all duration-300 ease-in-out overflow-hidden`}>
+          <div className={`${isSidebarCollapsed ? 'w-20' : 'w-[230px]'} flex flex-col h-full`}>
+            <SidebarContent
+              isCollapsed={isSidebarCollapsed}
+              showCollapseToggle={false}
+            />
+          </div>
+        </aside>
+        {/* Botão de toggle na borda - fora do overflow-hidden */}
+        <button
+          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          className="absolute top-20 -right-3.5 z-40 size-7 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary shadow-md transition-all hover:scale-110 active:scale-95"
+          title={isSidebarCollapsed ? "Expandir Menu" : "Recolher Menu"}
+          aria-label={isSidebarCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
+        >
+          <span className="material-symbols-outlined text-[18px]">
+            {isSidebarCollapsed ? 'chevron_right' : 'chevron_left'}
+          </span>
+        </button>
+      </div>
       <Sheet open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
         <SheetContent className="p-0">
           <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800">
