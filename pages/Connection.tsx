@@ -1,445 +1,285 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ConnectionStatus, QRCodeState } from '../types';
-import { StatusIndicator, ConnectionAlert } from '../components/ui/StatusIndicator';
+import React, { useEffect, useState } from 'react';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../lib/firebase';
 import { useInstanceStatusContext } from '../hooks/useInstanceStatus';
-import { useCampaignsContext } from '../hooks/useCampaigns';
 
-const Connection: React.FC = () => {
-  const navigate = useNavigate();
+interface QRCodeResponse {
+  success: boolean;
+  qrcode?: string;
+  paircode?: string;
+  status: 'disconnected' | 'connecting' | 'connected';
+  error?: string;
+}
 
-  // Hook global de status da instância
-  const {
-    status: connectionStatus,
-    instanceInfo,
-    isLoading: isRefreshing,
-    refresh,
-    simulateStatusChange,
-  } = useInstanceStatusContext();
+interface InstanceStatusResponse {
+  success: boolean;
+  status: 'disconnected' | 'connecting' | 'connected';
+  qrcode?: string;
+  paircode?: string;
+  profileName?: string;
+  profilePicUrl?: string;
+  isBusiness?: boolean;
+  error?: string;
+}
 
-  // Story 2.3 - Campanhas pausadas por desconexão
-  const { pausedByDisconnection } = useCampaignsContext();
+const Connection = () => {
+  const { status, instanceInfo, refresh } = useInstanceStatusContext();
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [pairCode, setPairCode] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
 
-  // Estado do QR Code (local desta página)
-  const [qrCodeState, setQrCodeState] = useState<QRCodeState>({
-    code: null,
-    loading: false,
-    expiresAt: null,
-    error: null,
-  });
+  // Função para gerar QR Code
+  const handleConnect = async () => {
+    setIsLoading(true);
+    setError(null);
+    setQrCode(null);
+    setPairCode(null);
 
-  // Simula geração de QR Code (será substituído por chamada real à UAZAPI)
-  const generateQRCode = async () => {
-    setQrCodeState(prev => ({ ...prev, loading: true, error: null }));
+    try {
+      const generateQRCode = httpsCallable<unknown, QRCodeResponse>(functions, 'generateQRCode');
+      const result = await generateQRCode({});
 
-    // Simula delay de API
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    // Mock: Em produção, isso virá da UAZAPI /instance/qrcode
-    setQrCodeState({
-      code: 'MOCK_QR_CODE_BASE64_DATA',
-      loading: false,
-      expiresAt: new Date(Date.now() + 60000).toISOString(), // Expira em 60s
-      error: null,
-    });
-  };
-
-  // Simula conexão bem sucedida (será substituído por webhook UAZAPI)
-  const handleQRCodeScanned = () => {
-    simulateStatusChange('connecting');
-
-    // Simula delay de conexão
-    setTimeout(() => {
-      simulateStatusChange('connected');
-      setQrCodeState(prev => ({ ...prev, code: null }));
-    }, 2000);
-  };
-
-  // Desconecta a instância
-  const handleDisconnect = () => {
-    simulateStatusChange('disconnected');
-    generateQRCode();
-  };
-
-  // Gera QR Code ao montar se desconectado
-  useEffect(() => {
-    if (connectionStatus === 'disconnected' && !qrCodeState.code && !qrCodeState.loading) {
-      generateQRCode();
-    }
-  }, [connectionStatus]);
-
-  // Timer para expiração do QR Code
-  useEffect(() => {
-    if (!qrCodeState.expiresAt || connectionStatus === 'connected') return;
-
-    const checkExpiration = setInterval(() => {
-      if (new Date() > new Date(qrCodeState.expiresAt!)) {
-        setQrCodeState(prev => ({
-          ...prev,
-          code: null,
-          error: 'QR Code expirado. Clique para gerar um novo.',
-        }));
+      if (result.data.success) {
+        if (result.data.qrcode) {
+          setQrCode(result.data.qrcode);
+          startPolling();
+        }
+        if (result.data.paircode) {
+          setPairCode(result.data.paircode);
+        }
+      } else {
+        setError(result.data.error || 'Erro ao gerar QR Code');
       }
-    }, 1000);
+    } catch (err) {
+      setError('Falha ao conectar. Tente novamente.');
+      console.error('Erro:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    return () => clearInterval(checkExpiration);
-  }, [qrCodeState.expiresAt, connectionStatus]);
+  // Polling para verificar status da conexão
+  const startPolling = () => {
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+    }
+
+    const interval = setInterval(async () => {
+      try {
+        const getInstanceStatus = httpsCallable<unknown, InstanceStatusResponse>(functions, 'getInstanceStatus');
+        const result = await getInstanceStatus({});
+
+        if (result.data.status === 'connected') {
+          // Conexão estabelecida!
+          clearInterval(interval);
+          setPollingInterval(null);
+          setQrCode(null);
+          setPairCode(null);
+          refresh(); // Atualiza o contexto
+        } else if (result.data.status === 'connecting' && result.data.qrcode) {
+          // QR Code atualizado
+          setQrCode(result.data.qrcode);
+          if (result.data.paircode) {
+            setPairCode(result.data.paircode);
+          }
+        }
+      } catch (err) {
+        console.error('Erro no polling:', err);
+      }
+    }, 3000); // Poll a cada 3 segundos
+
+    setPollingInterval(interval);
+  };
+
+  // Limpar polling ao desmontar
+  useEffect(() => {
+    return () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+    };
+  }, [pollingInterval]);
+
+  // Status badges
+  const getStatusBadge = () => {
+    switch (status) {
+      case 'connected':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-sm font-semibold">
+            <span className="size-2 bg-emerald-500 rounded-full animate-pulse"></span>
+            Conectado
+          </span>
+        );
+      case 'connecting':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-sm font-semibold">
+            <span className="material-symbols-outlined text-[16px] animate-spin">sync</span>
+            Conectando...
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm font-semibold">
+            <span className="size-2 bg-red-500 rounded-full"></span>
+            Desconectado
+          </span>
+        );
+    }
+  };
 
   return (
-    <div className="max-w-4xl mx-auto flex flex-col gap-8">
-      {/* Header da Página */}
-      {/* Header simplificado */}
-
-
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Card Principal - QR Code */}
-        <div className="lg:col-span-3 bg-white dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-          {/* Header do Card */}
-          <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <span className="material-symbols-outlined text-primary">
-                  qr_code_2
-                </span>
-              </div>
-              <div>
-                <h3 className="font-bold text-lg text-slate-900 dark:text-white">
-                  {connectionStatus === 'connected' ? 'Dispositivo Conectado' : 'Escaneie o QR Code'}
-                </h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {connectionStatus === 'connected'
-                    ? 'Seu WhatsApp está pronto para uso'
-                    : connectionStatus === 'connecting'
-                      ? 'Estabelecendo conexão...'
-                      : 'Use o WhatsApp do seu celular para escanear'}
-                </p>
-              </div>
-            </div>
-            {/* Badge de Status - Usando componente reutilizável */}
-            <StatusIndicator status={connectionStatus} size="md" />
+    <div className="max-w-2xl mx-auto">
+      {/* Card Principal */}
+      <div className="bg-white dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+        {/* Header */}
+        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+              Conexão WhatsApp
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Conecte seu WhatsApp para enviar campanhas
+            </p>
           </div>
-
-          {/* Área do QR Code */}
-          <div className="p-8 flex flex-col items-center justify-center bg-slate-50/50 dark:bg-slate-800/20 min-h-[400px]">
-            {connectionStatus === 'connected' ? (
-              /* Estado Conectado */
-              <div className="flex flex-col items-center gap-6 text-center">
-                <div className="relative">
-                  <div className="size-32 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-6xl text-emerald-600 dark:text-emerald-400">
-                      check_circle
-                    </span>
-                  </div>
-                  <div className="absolute -bottom-1 -right-1 p-2 bg-white dark:bg-surface-dark rounded-full shadow-lg border border-slate-200 dark:border-slate-700">
-                    <span className="material-symbols-outlined text-2xl text-primary">
-                      smartphone
-                    </span>
-                  </div>
-                </div>
-                <div>
-                  <h4 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-                    WhatsApp Conectado!
-                  </h4>
-                  <p className="text-slate-500 dark:text-slate-400 max-w-sm mb-6">
-                    Seu dispositivo está sincronizado e pronto para enviar campanhas.
-                    Você pode fechar esta página com segurança.
-                  </p>
-                  <div className="flex gap-3 justify-center">
-                    <button
-                      onClick={() => navigate('/campaigns')}
-                      className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 dark:bg-primary text-white dark:text-slate-900 rounded-lg font-semibold text-sm hover:bg-slate-800 dark:hover:bg-primary-dark transition-colors shadow-lg shadow-slate-200 dark:shadow-none"
-                    >
-                      <span className="material-symbols-outlined text-[20px]">
-                        send
-                      </span>
-                      Criar Campanha
-                    </button>
-                    <button
-                      onClick={handleDisconnect}
-                      className="flex items-center gap-2 px-4 py-2.5 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg font-semibold text-sm hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-[20px]">
-                        link_off
-                      </span>
-                      Desconectar
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : connectionStatus === 'connecting' ? (
-              /* Estado Conectando */
-              <div className="flex flex-col items-center gap-6 text-center">
-                <div className="relative">
-                  <div className="size-32 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-6xl text-blue-600 dark:text-blue-400 animate-spin">
-                      sync
-                    </span>
-                  </div>
-                </div>
-                <div>
-                  <h4 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-                    Conectando...
-                  </h4>
-                  <p className="text-slate-500 dark:text-slate-400 max-w-sm">
-                    Estabelecendo conexão com seu dispositivo. Isso pode levar alguns segundos.
-                  </p>
-                </div>
-              </div>
-            ) : qrCodeState.loading ? (
-              /* Estado Loading */
-              <div className="flex flex-col items-center gap-4">
-                <div className="size-48 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center shadow-sm">
-                  <div className="flex flex-col items-center gap-3">
-                    <span className="material-symbols-outlined text-4xl text-slate-400 animate-spin">
-                      progress_activity
-                    </span>
-                    <span className="text-sm text-slate-500 font-medium">
-                      Gerando QR Code...
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ) : qrCodeState.error ? (
-              /* Estado de Erro/Expirado */
-              <div className="flex flex-col items-center gap-4 text-center">
-                <div className="size-48 bg-white dark:bg-slate-800 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center">
-                  <div className="flex flex-col items-center gap-2">
-                    <span className="material-symbols-outlined text-4xl text-amber-500">
-                      timer_off
-                    </span>
-                    <span className="text-sm text-slate-500 font-medium px-4">
-                      {qrCodeState.error}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  onClick={generateQRCode}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 dark:bg-primary text-white dark:text-slate-900 rounded-lg font-semibold text-sm hover:bg-slate-800 dark:hover:bg-primary-dark transition-colors shadow-lg shadow-slate-200 dark:shadow-none"
-                >
-                  <span className="material-symbols-outlined text-[20px]">
-                    refresh
-                  </span>
-                  Gerar Novo QR Code
-                </button>
-              </div>
-            ) : (
-              /* QR Code Ativo */
-              <div className="flex flex-col items-center gap-6">
-                {/* Container do QR Code */}
-                <div
-                  className="relative size-56 bg-white p-4 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 cursor-pointer group"
-                  onClick={handleQRCodeScanned}
-                  title="[DEV] Clique para simular conexão"
-                >
-                  {/* QR Code Mock - Em produção será imagem Base64 da UAZAPI */}
-                  <div className="w-full h-full bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center">
-                    <div className="grid grid-cols-5 gap-1 p-2">
-                      {/* Simulação visual de QR Code */}
-                      {Array.from({ length: 25 }).map((_, i) => (
-                        <div
-                          key={i}
-                          className={`size-6 rounded-sm ${[0, 1, 2, 3, 4, 5, 9, 10, 14, 15, 19, 20, 21, 22, 23, 24].includes(i)
-                            ? 'bg-slate-800 dark:bg-white'
-                            : i % 3 === 0 ? 'bg-slate-800 dark:bg-white' : 'bg-transparent'
-                            }`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  {/* Overlay hover */}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 dark:group-hover:bg-white/5 rounded-xl transition-colors flex items-center justify-center">
-                    <span className="material-symbols-outlined text-4xl text-transparent group-hover:text-primary transition-colors">
-                      smartphone
-                    </span>
-                  </div>
-                </div>
-
-                {/* Instruções */}
-                <div className="text-center max-w-xs">
-                  <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed">
-                    Abra o <strong>WhatsApp</strong> no seu celular, vá em{' '}
-                    <strong>Aparelhos Conectados</strong> e escaneie este código.
-                  </p>
-                </div>
-
-                {/* Botão Refresh */}
-                <button
-                  onClick={generateQRCode}
-                  className="flex items-center gap-2 px-4 py-2 text-slate-600 dark:text-slate-300 hover:text-primary border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium hover:border-primary transition-colors"
-                >
-                  <span className="material-symbols-outlined text-[18px]">
-                    refresh
-                  </span>
-                  Gerar Novo Código
-                </button>
-              </div>
-            )}
-          </div>
+          {getStatusBadge()}
         </div>
 
-        {/* Sidebar - Informações e Ajuda */}
-        <div className="lg:col-span-2 flex flex-col gap-6">
-          {/* Card de Informações da Instância */}
-          <div className="bg-white dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-slate-100 dark:border-slate-800">
-              <h4 className="font-bold text-sm text-slate-900 dark:text-white">
-                Informações da Instância
-              </h4>
+        {/* Conteúdo */}
+        <div className="p-6">
+          {/* Estado: Conectado */}
+          {status === 'connected' && (
+            <div className="flex flex-col items-center gap-6">
+              {/* Avatar do perfil */}
+              <div className="relative">
+                <div
+                  className="size-24 rounded-full bg-slate-200 dark:bg-slate-700 bg-cover bg-center ring-4 ring-emerald-100 dark:ring-emerald-900/30 flex items-center justify-center text-3xl font-bold text-slate-500 dark:text-slate-400"
+                  style={instanceInfo.profilePicUrl ? {
+                    backgroundImage: `url('${instanceInfo.profilePicUrl}')`,
+                  } : undefined}
+                >
+                  {!instanceInfo.profilePicUrl && (instanceInfo.name?.[0]?.toUpperCase() || 'W')}
+                </div>
+                <div className="absolute -bottom-1 -right-1 p-1.5 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-slate-800">
+                  <span className="material-symbols-outlined text-white text-[16px]">check</span>
+                </div>
+              </div>
+
+              {/* Informações */}
+              <div className="text-center">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+                  {instanceInfo.name || 'WhatsApp Conectado'}
+                </h3>
+                {instanceInfo.phone && (
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    {instanceInfo.phone}
+                  </p>
+                )}
+                {instanceInfo.lastSync && (
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
+                    Última sinc.: {new Date(instanceInfo.lastSync).toLocaleString('pt-BR')}
+                  </p>
+                )}
+              </div>
+
+              {/* Ações */}
+              <div className="flex gap-3">
+                <button
+                  onClick={refresh}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-sm font-medium"
+                >
+                  <span className="material-symbols-outlined text-[18px]">refresh</span>
+                  Atualizar
+                </button>
+              </div>
             </div>
-            <div className="p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-500 dark:text-slate-400">Nome</span>
-                <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                  {instanceInfo.name}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-500 dark:text-slate-400">Número</span>
-                <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                  {instanceInfo.phone || '—'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-500 dark:text-slate-400">Última Sinc.</span>
-                <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                  {instanceInfo.lastSync || '—'}
-                </span>
-              </div>
-              {instanceInfo.battery !== undefined && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-500 dark:text-slate-400">Bateria</span>
-                  <div className="flex items-center gap-1.5">
-                    <span className={`material-symbols-outlined text-[16px] ${instanceInfo.battery < 20 ? 'text-red-500' : 'text-emerald-500'
-                      }`}>
-                      {instanceInfo.isCharging ? 'battery_charging_full' :
-                        instanceInfo.battery < 20 ? 'battery_alert' : 'battery_full'}
-                    </span>
-                    <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                      {instanceInfo.battery}%
+          )}
+
+          {/* Estado: Desconectado ou Conectando */}
+          {status !== 'connected' && (
+            <div className="flex flex-col items-center gap-6">
+              {/* QR Code */}
+              {qrCode ? (
+                <div className="flex flex-col items-center gap-4">
+                  <div className="p-4 bg-white rounded-xl shadow-md border border-slate-200">
+                    <img
+                      src={qrCode}
+                      alt="QR Code WhatsApp"
+                      className="size-64"
+                    />
+                  </div>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 text-center max-w-sm">
+                    Abra o <strong>WhatsApp</strong> no seu celular, vá em{' '}
+                    <strong>Dispositivos Conectados</strong> e escaneie o código acima.
+                  </p>
+
+                  {pairCode && (
+                    <div className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                      <span className="text-sm text-slate-500">Código de pareamento:</span>
+                      <span className="font-mono font-bold text-lg text-slate-900 dark:text-white">{pairCode}</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-4 py-8">
+                  {/* Ícone grande */}
+                  <div className="size-24 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-5xl text-slate-400">
+                      smartphone
                     </span>
                   </div>
+
+                  <div className="text-center">
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+                      Conecte seu WhatsApp
+                    </h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+                      Clique no botão abaixo para gerar um QR Code e conectar seu WhatsApp ao sistema.
+                    </p>
+                  </div>
+
+                  {/* Botão Conectar */}
+                  <button
+                    onClick={handleConnect}
+                    disabled={isLoading}
+                    className="flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-white font-medium hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isLoading ? (
+                      <>
+                        <span className="material-symbols-outlined text-[20px] animate-spin">sync</span>
+                        Gerando QR Code...
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-[20px]">qr_code_2</span>
+                        Conectar WhatsApp
+                      </>
+                    )}
+                  </button>
                 </div>
               )}
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-500 dark:text-slate-400">Status</span>
-                <StatusIndicator status={connectionStatus} size="sm" />
-              </div>
+
+              {/* Erro */}
+              {error && (
+                <div className="w-full p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-3">
+                  <span className="material-symbols-outlined text-red-600 dark:text-red-400">error</span>
+                  <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+                </div>
+              )}
             </div>
+          )}
+        </div>
+
+        {/* Footer com dicas */}
+        <div className="p-4 bg-slate-50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex items-start gap-3">
+            <span className="material-symbols-outlined text-blue-500 text-[20px] flex-shrink-0 mt-0.5">info</span>
+            <p className="text-xs text-slate-600 dark:text-slate-400">
+              <strong>Dica:</strong> Use uma conta do <strong>WhatsApp Business</strong> para melhor estabilidade.
+              O número conectado aqui será usado para enviar suas campanhas.
+            </p>
           </div>
-
-          {/* Card de Instruções */}
-          <div className="bg-white dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-slate-100 dark:border-slate-800">
-              <h4 className="font-bold text-sm text-slate-900 dark:text-white">
-                Como Conectar
-              </h4>
-            </div>
-            <div className="p-4">
-              <ol className="space-y-3">
-                {[
-                  { icon: 'smartphone', text: 'Abra o WhatsApp no seu celular' },
-                  { icon: 'more_vert', text: 'Toque no menu (três pontos)' },
-                  { icon: 'devices', text: 'Selecione "Aparelhos Conectados"' },
-                  { icon: 'qr_code_scanner', text: 'Escaneie o QR Code acima' },
-                ].map((step, index) => (
-                  <li key={index} className="flex items-start gap-3">
-                    <div className="flex-shrink-0 size-6 rounded-full bg-primary/10 flex items-center justify-center">
-                      <span className="text-xs font-bold text-primary">{index + 1}</span>
-                    </div>
-                    <div className="flex items-center gap-2 pt-0.5">
-                      <span className="material-symbols-outlined text-[16px] text-slate-400">
-                        {step.icon}
-                      </span>
-                      <span className="text-sm text-slate-600 dark:text-slate-300">
-                        {step.text}
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          </div>
-
-          {/* Alerta Contextual - Usando componente reutilizável */}
-          <ConnectionAlert
-            status={connectionStatus}
-            onReconnect={() => {
-              generateQRCode();
-            }}
-          />
-
-          {/* Card de Info (sempre visível quando conectado) */}
-          {connectionStatus === 'connected' && (
-            <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800">
-              <div className="flex gap-3">
-                <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400 flex-shrink-0">
-                  verified
-                </span>
-                <div>
-                  <p className="text-sm text-emerald-800 dark:text-emerald-200 font-medium mb-1">
-                    Tudo pronto!
-                  </p>
-                  <p className="text-xs text-emerald-600 dark:text-emerald-300">
-                    Seu WhatsApp está conectado. Você pode criar campanhas e agendar envios com segurança.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Story 2.3 - Campanhas Pausadas aguardando reconexão */}
-          {connectionStatus === 'disconnected' && pausedByDisconnection.length > 0 && (
-            <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800">
-              <div className="flex items-start gap-3 mb-3">
-                <span className="material-symbols-outlined text-amber-600 dark:text-amber-400">
-                  pause_circle
-                </span>
-                <div>
-                  <p className="text-sm text-amber-800 dark:text-amber-200 font-bold">
-                    {pausedByDisconnection.length} campanha{pausedByDisconnection.length > 1 ? 's' : ''} aguardando
-                  </p>
-                  <p className="text-xs text-amber-600 dark:text-amber-300">
-                    Serão retomadas automaticamente após reconexão.
-                  </p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                {pausedByDisconnection.map((campaign) => (
-                  <div
-                    key={campaign.campaignId}
-                    className="flex items-center justify-between bg-white/60 dark:bg-slate-800/40 rounded-lg px-3 py-2 text-sm"
-                  >
-                    <span className="text-slate-700 dark:text-slate-200 font-medium truncate">
-                      {campaign.campaignName}
-                    </span>
-                    <span className="text-slate-500 dark:text-slate-400 text-xs flex-shrink-0 ml-2">
-                      {campaign.lastContactIndex}/{campaign.totalContacts}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Card de Info (sempre visível quando desconectado) */}
-          {connectionStatus === 'disconnected' && (
-            <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800">
-              <div className="flex gap-3">
-                <span className="material-symbols-outlined text-blue-600 dark:text-blue-400 flex-shrink-0">
-                  info
-                </span>
-                <div>
-                  <p className="text-sm text-blue-800 dark:text-blue-200 font-medium mb-1">
-                    Mantenha seu celular conectado
-                  </p>
-                  <p className="text-xs text-blue-600 dark:text-blue-300">
-                    Para enviar mensagens, seu celular precisa estar conectado à internet
-                    e com bateria suficiente.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

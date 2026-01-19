@@ -73,6 +73,7 @@ export interface InstanceInfo {
   lastSync: string | null;
   battery?: number;
   isCharging?: boolean;
+  profilePicUrl?: string;
 }
 
 // Story 2.3 - Detecção de Perda de Conexão
