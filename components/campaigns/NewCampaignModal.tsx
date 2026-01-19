@@ -138,9 +138,9 @@ export const NewCampaignModal: React.FC<NewCampaignModalProps> = ({
         let finalTotalContacts = 0;
 
         if (audienceType === 'categories') {
-            finalTotalContacts = categories
-                .filter(c => selectedCategoryIds.includes(c.id))
-                .reduce((acc, curr) => acc + curr.contactCount, 0);
+            finalTotalContacts = contacts.filter(c =>
+                selectedCategoryIds.some(catId => c.categoryIds?.includes(catId))
+            ).length;
         } else if (audienceType === 'manual') {
             finalTotalContacts = selectedManualContactIds.length;
         } else {
@@ -173,9 +173,9 @@ export const NewCampaignModal: React.FC<NewCampaignModalProps> = ({
 
     const getEstimatedContacts = () => {
         if (audienceType === 'categories') {
-            return categories
-                .filter(c => selectedCategoryIds.includes(c.id))
-                .reduce((acc, curr) => acc + curr.contactCount, 0);
+            return contacts.filter(c =>
+                selectedCategoryIds.some(catId => c.categoryIds?.includes(catId))
+            ).length;
         }
         if (audienceType === 'manual') {
             return selectedManualContactIds.length;
@@ -323,41 +323,44 @@ export const NewCampaignModal: React.FC<NewCampaignModalProps> = ({
 
                                 {audienceType === 'categories' ? (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        {categories.map((category) => (
-                                            <label
-                                                key={category.id}
-                                                className={`
+                                        {categories.map(category => {
+                                            const realCount = contacts.filter(c => c.categoryIds?.includes(category.id)).length;
+                                            return (
+                                                <label
+                                                    key={category.id}
+                                                    className={`
                             relative flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all hover:bg-white dark:hover:bg-slate-800
                             ${selectedCategoryIds.includes(category.id)
-                                                        ? 'border-primary bg-primary/5 dark:bg-primary/10'
-                                                        : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:border-primary/50'}
+                                                            ? 'border-primary bg-primary/5 dark:bg-primary/10'
+                                                            : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:border-primary/50'}
                           `}
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    className="sr-only"
-                                                    checked={selectedCategoryIds.includes(category.id)}
-                                                    onChange={() => toggleCategory(category.id)}
-                                                />
-                                                <div className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center transition-colors ${selectedCategoryIds.includes(category.id)
-                                                    ? 'bg-primary border-primary'
-                                                    : 'border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-900'
-                                                    }`}>
-                                                    {selectedCategoryIds.includes(category.id) && (
-                                                        <span className="material-symbols-outlined text-[16px] text-slate-900 font-bold">check</span>
-                                                    )}
-                                                </div>
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <span className={`size-2.5 rounded-full ${CATEGORY_COLOR_CLASSES[category.color]?.dot || 'bg-slate-500'}`}></span>
-                                                        <span className="font-semibold text-sm text-slate-900 dark:text-white">{category.name}</span>
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        className="sr-only"
+                                                        checked={selectedCategoryIds.includes(category.id)}
+                                                        onChange={() => toggleCategory(category.id)}
+                                                    />
+                                                    <div className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center transition-colors ${selectedCategoryIds.includes(category.id)
+                                                        ? 'bg-primary border-primary'
+                                                        : 'border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-900'
+                                                        }`}>
+                                                        {selectedCategoryIds.includes(category.id) && (
+                                                            <span className="material-symbols-outlined text-[16px] text-slate-900 font-bold">check</span>
+                                                        )}
                                                     </div>
-                                                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                        {category.contactCount} contatos
-                                                    </p>
-                                                </div>
-                                            </label>
-                                        ))}
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className={`size-2.5 rounded-full ${CATEGORY_COLOR_CLASSES[category.color]?.dot || 'bg-slate-500'}`}></span>
+                                                            <span className="font-semibold text-sm text-slate-900 dark:text-white">{category.name}</span>
+                                                        </div>
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                            {realCount} contatos
+                                                        </p>
+                                                    </div>
+                                                </label>
+                                            );
+                                        })}
                                     </div>
                                 ) : audienceType === 'manual' ? (
                                     <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200 h-[400px] flex flex-col">
