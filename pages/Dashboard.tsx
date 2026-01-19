@@ -151,29 +151,85 @@ const Dashboard = () => {
             </div>
           </div>
           <div className="p-6 flex flex-col items-center justify-center flex-1 gap-6 bg-slate-50/50 dark:bg-slate-800/20">
-            <div className="relative size-32 bg-white dark:bg-slate-800 p-2 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-center">
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className={`material-symbols-outlined text-4xl ${status === 'connected' ? 'text-emerald-600' :
-                  status === 'connecting' ? 'text-amber-500 animate-spin' : 'text-red-500'
-                  }`}>
-                  {status === 'connected' ? 'check_circle' : status === 'connecting' ? 'sync' : 'error'}
-                </span>
-              </div>
-            </div>
-            <div className="text-center">
-              <p className="font-semibold text-slate-900 dark:text-white text-lg">
-                {instanceInfo.name || 'Instância não configurada'}
-              </p>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                Última sinc.: {instanceInfo.lastSync
-                  ? new Date(instanceInfo.lastSync).toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-                  : 'Nunca'
-                }
-              </p>
-              <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                {instanceInfo.phone || 'Sem número vinculado'}
-              </p>
-            </div>
+            {/* Estado Conectado */}
+            {status === 'connected' && (
+              <>
+                <div className="relative size-32 bg-white dark:bg-slate-800 p-2 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-center">
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-4xl text-emerald-600">
+                      check_circle
+                    </span>
+                  </div>
+                </div>
+                <div className="text-center">
+                  <p className="font-semibold text-slate-900 dark:text-white text-lg">
+                    {instanceInfo.name || 'WhatsApp Conectado'}
+                  </p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    Última sinc.: {instanceInfo.lastSync
+                      ? new Date(instanceInfo.lastSync).toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                      : 'Nunca'
+                    }
+                  </p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                    {instanceInfo.phone || 'Sem número vinculado'}
+                  </p>
+                </div>
+              </>
+            )}
+
+            {/* Estado Desconectado */}
+            {status === 'disconnected' && (
+              <>
+                <div className="relative size-24 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center">
+                  <span className="material-symbols-outlined text-4xl text-red-500">
+                    smartphone
+                  </span>
+                </div>
+                <div className="text-center">
+                  <p className="font-semibold text-slate-900 dark:text-white text-lg">
+                    WhatsApp Desconectado
+                  </p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    Conecte para enviar campanhas
+                  </p>
+                </div>
+                <a
+                  href="#/connection"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-white font-medium hover:bg-primary-dark transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[20px]">qr_code_2</span>
+                  Conectar WhatsApp
+                </a>
+              </>
+            )}
+
+            {/* Estado Conectando */}
+            {status === 'connecting' && (
+              <>
+                <div className="relative size-32 bg-white dark:bg-slate-800 p-2 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-center">
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-4xl text-amber-500 animate-spin">
+                      sync
+                    </span>
+                  </div>
+                </div>
+                <div className="text-center">
+                  <p className="font-semibold text-slate-900 dark:text-white text-lg">
+                    Conectando...
+                  </p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    Aguarde ou escaneie o QR Code
+                  </p>
+                </div>
+                <a
+                  href="#/connection"
+                  className="text-sm text-primary hover:underline font-medium"
+                >
+                  Ver QR Code →
+                </a>
+              </>
+            )}
           </div>
           <div className="p-4 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-3">
             <button
@@ -186,12 +242,15 @@ const Dashboard = () => {
               </span>{' '}
               Sincronizar
             </button>
-            <button className="flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+            <a
+              href="#/connection"
+              className="flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            >
               <span className="material-symbols-outlined text-[18px]">
                 settings
               </span>{' '}
               Gerenciar
-            </button>
+            </a>
           </div>
         </div>
 
