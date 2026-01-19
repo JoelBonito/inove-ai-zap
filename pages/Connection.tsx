@@ -176,9 +176,12 @@ const Connection = () => {
                     {instanceInfo.phone}
                   </p>
                 )}
-                {instanceInfo.lastSync && (
+                {instanceInfo.lastSync && instanceInfo.lastSync !== 'agora' && (
                   <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
-                    Última sinc.: {new Date(instanceInfo.lastSync).toLocaleString('pt-BR')}
+                    Última sinc.: {(() => {
+                      const date = new Date(instanceInfo.lastSync);
+                      return isNaN(date.getTime()) ? 'Agora' : date.toLocaleString('pt-BR');
+                    })()}
                   </p>
                 )}
               </div>

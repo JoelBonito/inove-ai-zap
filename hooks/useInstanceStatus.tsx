@@ -169,15 +169,20 @@ export function useInstanceStatus(): UseInstanceStatusReturn {
   useEffect(() => {
     if (!user?.id) return;
 
-    const unsubscribe = onSnapshot(doc(db, 'instance_status', user.id), (snapshot) => {
+    // Escutar coleção 'instances' (onde os dados UAZAPI são salvos)
+    const unsubscribe = onSnapshot(doc(db, 'instances', user.id), (snapshot) => {
       const data = snapshot.data();
-      if (!data?.status) return;
+      if (!data) return;
 
-      updateStatus(data.status as ConnectionStatus, {
+      // Mapear campos do Firestore para o estado local
+      const newStatus = (data.status as ConnectionStatus) || 'disconnected';
+
+      updateStatus(newStatus, {
+        id: snapshot.id,
+        name: data.name || data.instanceName || '',
         phone: data.phone || null,
-        battery: data.battery,
-        isCharging: data.isCharging,
-        lastSync: data.lastUpdate?.toDate ? data.lastUpdate.toDate().toISOString() : data.lastUpdate || 'agora',
+        profilePicUrl: data.profilePicUrl || undefined,
+        lastSync: data.lastSync?.toDate ? data.lastSync.toDate().toISOString() : 'agora',
       });
     });
 

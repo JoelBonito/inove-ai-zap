@@ -15,12 +15,14 @@ service cloud.firestore {
     }
     
     // ================================================================
-    // INSTANCES (UAZAPI Credentials) - CLOUD FUNCTIONS ONLY
+    // INSTANCES (UAZAPI Configuration)
     // ================================================================
     
     match /instances/{ownerId} {
-      // Bloqueia acesso direto - apenas Cloud Functions podem ler/escrever
-      allow read, write: if false;
+      // Dono pode ler sua própria instância (status, nome, etc)
+      allow read: if isOwner(ownerId);
+      // Apenas Cloud Functions podem escrever
+      allow write: if false;
     }
     
     // ================================================================
