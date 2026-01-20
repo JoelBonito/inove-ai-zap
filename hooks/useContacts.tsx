@@ -340,13 +340,37 @@ export function useContacts(): UseContactsReturn {
         setParseProgress({ stage: 'reading', percent: 10, message: 'Lendo arquivo...' });
 
         try {
-            // Ler arquivo
-            const text = await file.text();
+            let headers: string[] = [];
+            let rows: string[][] = [];
 
-            setParseProgress({ stage: 'parsing', percent: 30, message: 'Analisando dados...' });
+            const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
 
-            // Parse CSV com suporte a RFC 4180
-            const { headers, rows } = parseCSV(text);
+            if (isExcel) {
+                // Ler arquivo Excel como ArrayBuffer
+                const buffer = await file.arrayBuffer();
+                const XLSX = await import('xlsx');
+                const workbook = XLSX.read(buffer, { type: 'array' });
+
+                // Pegar a primeira aba (sheet)
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+
+                // Converter para JSON (array de arrays) - mantendo tudo como string
+                const data = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as any[][];
+
+                if (data.length > 0) {
+                    headers = (data[0] || []).map(h => String(h).toLowerCase().trim());
+                    rows = data.slice(1).map(row => row.map(cell => String(cell).trim()));
+                }
+            } else {
+                // Ler arquivo CSV como texto
+                const text = await file.text();
+                setParseProgress({ stage: 'parsing', percent: 30, message: 'Analisando dados...' });
+
+                const csvData = parseCSV(text);
+                headers = csvData.headers;
+                rows = csvData.rows;
+            }
 
             if (headers.length === 0 || rows.length === 0) {
                 throw new Error('Arquivo vazio ou formato inválido');
