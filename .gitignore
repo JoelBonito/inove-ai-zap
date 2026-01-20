@@ -51,3 +51,4 @@ web/.vite/
 
 # Web bundles (generated)
 web-bundles/
+.vercel

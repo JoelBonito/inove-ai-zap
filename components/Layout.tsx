@@ -65,7 +65,7 @@ const SidebarContent = ({
           {/* Logo container with hover effect */}
           <div className="absolute inset-0 bg-primary/10 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
           <img
-            src="/public/logo.jpg"
+            src="/logo.jpg"
             alt="Inove AI Zap"
             className={`${isCollapsed ? 'w-10' : 'w-20'} h-auto rounded-xl shadow-md object-contain relative z-10 transition-all duration-300 group-hover:scale-105`}
           />

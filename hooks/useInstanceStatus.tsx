@@ -167,24 +167,46 @@ export function useInstanceStatus(): UseInstanceStatusReturn {
   }, [updateStatus, disconnect]);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      console.log('[InstanceStatus] Sem user.id, pulando listener');
+      return;
+    }
+
+    console.log('[InstanceStatus] Iniciando listener para:', user.id);
 
     // Escutar coleção 'instances' (onde os dados UAZAPI são salvos)
-    const unsubscribe = onSnapshot(doc(db, 'instances', user.id), (snapshot) => {
-      const data = snapshot.data();
-      if (!data) return;
+    const unsubscribe = onSnapshot(
+      doc(db, 'instances', user.id),
+      (snapshot) => {
+        console.log('[InstanceStatus] Snapshot recebido:', {
+          exists: snapshot.exists(),
+          id: snapshot.id,
+        });
 
-      // Mapear campos do Firestore para o estado local
-      const newStatus = (data.status as ConnectionStatus) || 'disconnected';
+        const data = snapshot.data();
+        console.log('[InstanceStatus] Dados do snapshot:', data);
 
-      updateStatus(newStatus, {
-        id: snapshot.id,
-        name: data.name || data.instanceName || '',
-        phone: data.phone || null,
-        profilePicUrl: data.profilePicUrl || undefined,
-        lastSync: data.lastSync?.toDate ? data.lastSync.toDate().toISOString() : 'agora',
-      });
-    });
+        if (!data) {
+          console.log('[InstanceStatus] Sem dados, retornando');
+          return;
+        }
+
+        // Mapear campos do Firestore para o estado local
+        const newStatus = (data.status as ConnectionStatus) || 'disconnected';
+        console.log('[InstanceStatus] Novo status:', newStatus);
+
+        updateStatus(newStatus, {
+          id: snapshot.id,
+          name: data.name || data.instanceName || '',
+          phone: data.phone || null,
+          profilePicUrl: data.profilePicUrl || undefined,
+          lastSync: data.lastSync?.toDate ? data.lastSync.toDate().toISOString() : 'agora',
+        });
+      },
+      (error) => {
+        console.error('[InstanceStatus] Erro no listener:', error);
+      }
+    );
 
     return () => unsubscribe();
   }, [updateStatus, user?.id]);

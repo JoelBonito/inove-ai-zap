@@ -46,7 +46,7 @@ const Login = () => {
         <div className="bg-white dark:bg-surface-dark rounded-2xl shadow-xl border border-slate-100 dark:border-slate-800 p-8 sm:p-10">
           <div className="flex flex-col items-center mb-8">
             <img
-              src="/public/logo.jpg"
+              src="/logo.jpg"
               alt="Inove AI Zap"
               className="w-[150px] h-auto rounded-2xl shadow-lg object-contain"
             />
