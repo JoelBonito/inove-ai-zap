@@ -199,7 +199,8 @@ export function useCampaigns(): UseCampaignsReturn {
                 scheduledAt: data.scheduledAt ? new Date(data.scheduledAt).toISOString() : null,
                 mediaUrl: data.mediaUrl,
                 mediaType: data.mediaType,
-                total: data.total
+                total: data.total,
+                status: data.status // Enviar status explicito (sending/scheduled)
             };
 
             await createCampaignFn(payload);

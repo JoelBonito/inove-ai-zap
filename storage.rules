@@ -1,0 +1,19 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow uploads to campaign-media folder
+    match /campaign-media/{allPaths=**} {
+      // Public read access for WhatsApp/UAZAPI to fetch
+      allow read: if true;
+      
+      // Allow write globally for debugging (TEMPORARY)
+      allow write: if true;
+    }
+    
+    // Default rule: deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

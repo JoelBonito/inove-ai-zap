@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useCategories } from '../../hooks/useCategories';
 import { useContacts } from '../../hooks/useContacts'; // Story 5.1
 import { useCampaignsContext } from '../../hooks/useCampaigns';
 import { SpintaxGeneratorModal } from './SpintaxGeneratorModal';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 import { CATEGORY_COLOR_CLASSES } from '../../lib/categoryColors';
+import { storage } from '../../lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 interface NewCampaignModalProps {
     isOpen: boolean;
@@ -27,6 +29,8 @@ export const NewCampaignModal: React.FC<NewCampaignModalProps> = ({
     const [message, setMessage] = useState('');
     const [media, setMedia] = useState<File | null>(null);
     const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+    const [mediaUrl, setMediaUrl] = useState<string | null>(null); // URL pública do Storage
+    const [isUploading, setIsUploading] = useState(false);
     const [scheduledAt, setScheduledAt] = useState<string>('');
 
     // Story 4.3 - IA Modal State
@@ -53,6 +57,8 @@ export const NewCampaignModal: React.FC<NewCampaignModalProps> = ({
             setMessage('');
             setMedia(null);
             setMediaPreview(null);
+            setMediaUrl(null);
+            setIsUploading(false);
             setQuickListFile(null);
             setManualSearch('');
             setSelectedManualContactIds([]);
@@ -89,10 +95,13 @@ export const NewCampaignModal: React.FC<NewCampaignModalProps> = ({
         );
     };
 
-    // Filter contacts for manual selection
-    const filteredContacts = contacts.filter(c =>
-        c.name.toLowerCase().includes(manualSearch.toLowerCase()) ||
-        c.phone.includes(manualSearch)
+    // Filter contacts for manual selection - memoized to avoid recalculating on every render
+    const filteredContacts = useMemo(() =>
+        contacts.filter(c =>
+            c.name.toLowerCase().includes(manualSearch.toLowerCase()) ||
+            c.phone.includes(manualSearch)
+        ),
+        [contacts, manualSearch]
     );
 
     const insertVariable = (variable: string) => {
@@ -119,12 +128,35 @@ export const NewCampaignModal: React.FC<NewCampaignModalProps> = ({
         setMessage(text);
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
             setMedia(file);
-            const url = URL.createObjectURL(file);
-            setMediaPreview(url);
+
+            // Preview local para UX imediata
+            const previewUrl = URL.createObjectURL(file);
+            setMediaPreview(previewUrl);
+
+            // Upload para Firebase Storage
+            setIsUploading(true);
+            try {
+                const timestamp = Date.now();
+                const fileName = `campaign-media/${timestamp}_${file.name}`;
+                const storageRef = ref(storage, fileName);
+
+                await uploadBytes(storageRef, file);
+                const publicUrl = await getDownloadURL(storageRef);
+
+                setMediaUrl(publicUrl);
+                console.log('[Upload] Mídia enviada para Storage:', publicUrl);
+            } catch (error) {
+                console.error('[Upload] Erro ao enviar mídia:', error);
+                alert('Erro ao fazer upload da mídia. Tente novamente.');
+                setMedia(null);
+                setMediaPreview(null);
+            } finally {
+                setIsUploading(false);
+            }
         }
     };
 
@@ -132,7 +164,21 @@ export const NewCampaignModal: React.FC<NewCampaignModalProps> = ({
         setMedia(null);
         if (mediaPreview) URL.revokeObjectURL(mediaPreview);
         setMediaPreview(null);
+        setMediaUrl(null);
     }
+
+    // Memoize estimated contacts calculation - must be before any early returns
+    const totalContacts = useMemo(() => {
+        if (audienceType === 'categories') {
+            return contacts.filter(c =>
+                selectedCategoryIds.some(catId => c.categoryIds?.includes(catId))
+            ).length;
+        }
+        if (audienceType === 'manual') {
+            return selectedManualContactIds.length;
+        }
+        return parsedQuickContacts.length;
+    }, [audienceType, contacts, selectedCategoryIds, selectedManualContactIds, parsedQuickContacts]);
 
     const handleSave = async () => {
         let finalTotalContacts = 0;
@@ -153,16 +199,22 @@ export const NewCampaignModal: React.FC<NewCampaignModalProps> = ({
             return;
         }
 
+        // Verifica se ainda está fazendo upload da mídia
+        if (isUploading) {
+            alert('Aguarde o upload da mídia terminar.');
+            return;
+        }
+
         addCampaign({
             name,
             targetCategoryIds: audienceType === 'categories' ? selectedCategoryIds : undefined,
             targetContactList: audienceType === 'quick-list' ? parsedQuickContacts : undefined,
             targetContactIds: audienceType === 'manual' ? selectedManualContactIds : undefined, // Story 5.1
             content: message,
-            mediaUrl: mediaPreview || undefined,
+            mediaUrl: mediaUrl || undefined, // URL pública do Firebase Storage
             mediaType: media ? (media.type.startsWith('image/') ? 'image' : 'video') : undefined,
             total: finalTotalContacts,
-            status: scheduledAt ? 'Agendado' : 'Agendado', // Default
+            status: (scheduledAt ? 'scheduled' : 'sending') as any,
             scheduledAt: scheduledAt || undefined
         });
 
@@ -170,18 +222,6 @@ export const NewCampaignModal: React.FC<NewCampaignModalProps> = ({
     };
 
     if (!isOpen) return null;
-
-    const getEstimatedContacts = () => {
-        if (audienceType === 'categories') {
-            return contacts.filter(c =>
-                selectedCategoryIds.some(catId => c.categoryIds?.includes(catId))
-            ).length;
-        }
-        if (audienceType === 'manual') {
-            return selectedManualContactIds.length;
-        }
-        return parsedQuickContacts.length;
-    };
 
     const processQuickList = (text: string) => {
         const lines = text.split('\n');
@@ -231,7 +271,6 @@ export const NewCampaignModal: React.FC<NewCampaignModalProps> = ({
         }
     };
 
-    const totalContacts = getEstimatedContacts();
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -588,6 +627,23 @@ export const NewCampaignModal: React.FC<NewCampaignModalProps> = ({
                                     ) : (
                                         <div className="relative w-full h-48 bg-slate-900 rounded-lg overflow-hidden flex items-center justify-center group">
                                             <img src={mediaPreview} alt="Preview" className="max-h-full max-w-full object-contain" />
+
+                                            {/* Upload Overlay */}
+                                            {isUploading && (
+                                                <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center">
+                                                    <div className="animate-spin rounded-full h-10 w-10 border-4 border-primary border-t-transparent mb-2"></div>
+                                                    <p className="text-white text-sm">Enviando...</p>
+                                                </div>
+                                            )}
+
+                                            {/* Upload Complete Badge */}
+                                            {!isUploading && mediaUrl && (
+                                                <div className="absolute top-2 left-2 bg-emerald-500 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+                                                    <span className="material-symbols-outlined text-sm">check_circle</span>
+                                                    Pronto
+                                                </div>
+                                            )}
+
                                             <button
                                                 onClick={removeMedia}
                                                 className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all backdrop-blur-sm"
