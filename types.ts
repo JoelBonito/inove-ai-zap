@@ -36,6 +36,7 @@ export interface Contact {
     name: string;
     date: string;
   };
+  createdAt?: any;
   color: string;
 }
 

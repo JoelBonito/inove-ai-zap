@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { updateProfile } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
+import { auth, db } from '../lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 type SettingsTab = 'profile' | 'api' | 'notifications' | 'security';
 
@@ -24,6 +25,56 @@ const Settings = () => {
   });
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Estado do formulário de API
+  const [apiForm, setApiForm] = useState({
+    instanceId: '',
+    token: '',
+  });
+  const [isSavingApi, setIsSavingApi] = useState(false);
+  const [apiMessage, setApiMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Carrega configurações da API (apenas para admin)
+  useEffect(() => {
+    if (isAdmin && activeTab === 'api') {
+      const loadApiConfig = async () => {
+        try {
+          const docRef = doc(db, 'config', 'uazapi');
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            setApiForm({
+              instanceId: data.instanceId || '',
+              token: data.token || '',
+            });
+          }
+        } catch (error) {
+          console.error("Erro ao carregar config API:", error);
+        }
+      };
+      loadApiConfig();
+    }
+  }, [isAdmin, activeTab]);
+
+  // Salva configurações da API
+  const handleSaveApi = async () => {
+    setIsSavingApi(true);
+    setApiMessage(null);
+    try {
+      await setDoc(doc(db, 'config', 'uazapi'), {
+        instanceId: apiForm.instanceId,
+        token: apiForm.token,
+        updatedAt: new Date().toISOString(),
+        updatedBy: user?.email
+      });
+      setApiMessage({ type: 'success', text: 'Configurações da API atualizadas!' });
+    } catch (error) {
+      console.error("Erro ao salvar API:", error);
+      setApiMessage({ type: 'error', text: 'Erro ao salvar configurações.' });
+    } finally {
+      setIsSavingApi(false);
+    }
+  };
 
   // Carrega dados do usuário ao montar
   useEffect(() => {
@@ -52,6 +103,97 @@ const Settings = () => {
       setSaveMessage({ type: 'error', text: 'Erro ao salvar alterações. Tente novamente.' });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Estado do formulário de Segurança
+  const [securityForm, setSecurityForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [isChangingPass, setIsChangingPass] = useState(false);
+  const [securityMessage, setSecurityMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const handleChangePassword = async () => {
+    if (!auth.currentUser || !auth.currentUser.email) return;
+
+    if (securityForm.newPassword !== securityForm.confirmPassword) {
+      setSecurityMessage({ type: 'error', text: 'As novas senhas não coincidem.' });
+      return;
+    }
+
+    if (securityForm.newPassword.length < 6) {
+      setSecurityMessage({ type: 'error', text: 'A nova senha deve ter pelo menos 6 caracteres.' });
+      return;
+    }
+
+    setIsChangingPass(true);
+    setSecurityMessage(null);
+
+    try {
+      // Reautenticar usuário
+      const credential = EmailAuthProvider.credential(auth.currentUser.email, securityForm.currentPassword);
+      await reauthenticateWithCredential(auth.currentUser, credential);
+
+      // Atualizar senha
+      await updatePassword(auth.currentUser, securityForm.newPassword);
+
+      setSecurityMessage({ type: 'success', text: 'Senha atualizada com sucesso!' });
+      setSecurityForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (error: any) {
+      console.error("Erro ao mudar senha:", error);
+      if (error.code === 'auth/wrong-password') {
+        setSecurityMessage({ type: 'error', text: 'Senha atual incorreta.' });
+      } else if (error.code === 'auth/weak-password') {
+        setSecurityMessage({ type: 'error', text: 'A nova senha é muito fraca.' });
+      } else {
+        setSecurityMessage({ type: 'error', text: 'Erro ao atualizar senha. Tente novamente.' });
+      }
+    } finally {
+      setIsChangingPass(false);
+    }
+  };
+
+  // Estado de Notificações
+  const [notificationSettings, setNotificationSettings] = useState<Record<string, boolean>>({
+    campaign_start: true,
+    campaign_end: true,
+    disconnection: true,
+    low_battery: false,
+    error_alert: true,
+  });
+
+  // Carregar notificações do Firestore
+  useEffect(() => {
+    if (!user) return;
+    const loadNotifications = async () => {
+      try {
+        const docRef = doc(db, 'users', user.id, 'config', 'notifications');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setNotificationSettings(prev => ({ ...prev, ...docSnap.data() }));
+        }
+      } catch (err) {
+        console.error("Erro ao carregar notificações:", err);
+      }
+    };
+    loadNotifications();
+  }, [user]);
+
+  const handleToggleNotification = async (key: string, value: boolean) => {
+    // Atualiza estado local
+    const newSettings = { ...notificationSettings, [key]: value };
+    setNotificationSettings(newSettings);
+
+    // Salva no Firestore
+    if (user) {
+      try {
+        await setDoc(doc(db, 'users', user.id, 'config', 'notifications'), newSettings, { merge: true });
+      } catch (err) {
+        console.error("Erro ao salvar notificação:", err);
+        // Reverter em caso de erro (opcional, aqui simplificado)
+      }
     }
   };
 
@@ -169,8 +311,8 @@ const Settings = () => {
               {/* Mensagem de feedback */}
               {saveMessage && (
                 <div className={`p-3 rounded-lg flex items-center gap-2 ${saveMessage.type === 'success'
-                    ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                    : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
+                  ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                  : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
                   }`}>
                   <span className="material-symbols-outlined text-[18px]">
                     {saveMessage.type === 'success' ? 'check_circle' : 'error'}
@@ -246,15 +388,17 @@ const Settings = () => {
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <input
-                        className="w-full font-mono text-sm rounded-lg border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 focus:ring-0 focus:border-slate-300"
-                        readOnly
+                        className="w-full font-mono text-sm rounded-lg border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 focus:ring-primary focus:border-primary transition-all p-2.5"
                         type="text"
-                        value="inst_8293_vendas_01"
+                        value={apiForm.instanceId}
+                        onChange={(e) => setApiForm({ ...apiForm, instanceId: e.target.value })}
+                        placeholder="Ex: inst_..."
                       />
                     </div>
                     <button
                       className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-500 hover:text-primary hover:border-primary dark:hover:border-primary transition-all group"
                       title="Copiar"
+                      onClick={() => navigator.clipboard.writeText(apiForm.instanceId)}
                     >
                       <span className="material-symbols-outlined text-[20px] group-hover:scale-110 transition-transform">
                         content_copy
@@ -269,26 +413,49 @@ const Settings = () => {
                   <div className="flex gap-2">
                     <div className="relative flex-1 group">
                       <input
-                        className="w-full font-mono text-sm rounded-lg border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 focus:ring-0 focus:border-slate-300 tracking-widest"
-                        readOnly
+                        className="w-full font-mono text-sm rounded-lg border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 focus:ring-primary focus:border-primary transition-all p-2.5 tracking-widest"
                         type="password"
-                        value="wh_1234567890abcdefghijklmnopqrstuvwxyz"
+                        value={apiForm.token}
+                        onChange={(e) => setApiForm({ ...apiForm, token: e.target.value })}
+                        placeholder="••••••••••••••••••••••••"
                       />
-                      <button className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
-                        <span className="material-symbols-outlined text-[18px]">
-                          visibility
-                        </span>
-                      </button>
                     </div>
                     <button
                       className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-500 hover:text-primary hover:border-primary dark:hover:border-primary transition-all group"
                       title="Copiar"
+                      onClick={() => navigator.clipboard.writeText(apiForm.token)}
                     >
                       <span className="material-symbols-outlined text-[20px] group-hover:scale-110 transition-transform">
                         content_copy
                       </span>
                     </button>
                   </div>
+                </div>
+
+                {/* Mensagem de Feedback API */}
+                {apiMessage && (
+                  <div className={`p-3 rounded-lg flex items-center gap-2 ${apiMessage.type === 'success'
+                    ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                    : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
+                    }`}>
+                    <span className="material-symbols-outlined text-[18px]">
+                      {apiMessage.type === 'success' ? 'check_circle' : 'error'}
+                    </span>
+                    {apiMessage.text}
+                  </div>
+                )}
+
+                <div className="pt-4 flex justify-end">
+                  <button
+                    onClick={handleSaveApi}
+                    disabled={isSavingApi}
+                    className="px-4 py-2 text-sm font-medium text-white bg-slate-900 dark:bg-primary rounded-lg hover:bg-slate-800 dark:hover:bg-primary-dark transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {isSavingApi && (
+                      <span className="material-symbols-outlined text-[18px] animate-spin">sync</span>
+                    )}
+                    {isSavingApi ? 'Salvando...' : 'Salvar Configurações'}
+                  </button>
                 </div>
               </div>
             </div>
@@ -307,12 +474,13 @@ const Settings = () => {
               </p>
             </div>
             <div className="p-6 space-y-6">
+
               {[
-                { id: 'campaign_start', label: 'Início de Campanha', desc: 'Ser notificado quando uma campanha iniciar', enabled: true },
-                { id: 'campaign_end', label: 'Fim de Campanha', desc: 'Alerta ao concluir o envio de mensagens', enabled: true },
-                { id: 'disconnection', label: 'Desconexão do WhatsApp', desc: 'Alerta imediato se o celular desconectar', enabled: true },
-                { id: 'low_battery', label: 'Bateria Baixa', desc: 'Aviso quando a bateria estiver abaixo de 15%', enabled: false },
-                { id: 'error_alert', label: 'Erros de Envio', desc: 'Notificar quando houver falhas na campanha', enabled: true },
+                { id: 'campaign_start', label: 'Início de Campanha', desc: 'Ser notificado quando uma campanha iniciar' },
+                { id: 'campaign_end', label: 'Fim de Campanha', desc: 'Alerta ao concluir o envio de mensagens' },
+                { id: 'disconnection', label: 'Desconexão do WhatsApp', desc: 'Alerta imediato se o celular desconectar' },
+                { id: 'low_battery', label: 'Bateria Baixa', desc: 'Aviso quando a bateria estiver abaixo de 15%' },
+                { id: 'error_alert', label: 'Erros de Envio', desc: 'Notificar quando houver falhas na campanha' },
               ].map((item) => (
                 <div key={item.id} className="flex items-center justify-between py-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
                   <div>
@@ -320,7 +488,12 @@ const Settings = () => {
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{item.desc}</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" defaultChecked={item.enabled} className="sr-only peer" />
+                    <input
+                      type="checkbox"
+                      checked={!!notificationSettings[item.id]}
+                      onChange={(e) => handleToggleNotification(item.id, e.target.checked)}
+                      className="sr-only peer"
+                    />
                     <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-primary"></div>
                   </label>
                 </div>
@@ -350,20 +523,59 @@ const Settings = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Senha Atual</label>
-                    <input type="password" className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:border-primary focus:ring-primary shadow-sm text-sm" placeholder="••••••••" />
+                    <input
+                      type="password"
+                      className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:border-primary focus:ring-primary shadow-sm text-sm px-3 py-2"
+                      placeholder="••••••••"
+                      value={securityForm.currentPassword}
+                      onChange={(e) => setSecurityForm({ ...securityForm, currentPassword: e.target.value })}
+                    />
                   </div>
                   <div></div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Nova Senha</label>
-                    <input type="password" className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:border-primary focus:ring-primary shadow-sm text-sm" placeholder="••••••••" />
+                    <input
+                      type="password"
+                      className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:border-primary focus:ring-primary shadow-sm text-sm px-3 py-2"
+                      placeholder="••••••••"
+                      value={securityForm.newPassword}
+                      onChange={(e) => setSecurityForm({ ...securityForm, newPassword: e.target.value })}
+                    />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Confirmar Nova Senha</label>
-                    <input type="password" className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:border-primary focus:ring-primary shadow-sm text-sm" placeholder="••••••••" />
+                    <input
+                      type="password"
+                      className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white focus:border-primary focus:ring-primary shadow-sm text-sm px-3 py-2"
+                      placeholder="••••••••"
+                      value={securityForm.confirmPassword}
+                      onChange={(e) => setSecurityForm({ ...securityForm, confirmPassword: e.target.value })}
+                    />
                   </div>
                 </div>
-                <button className="px-4 py-2 text-sm font-medium text-white bg-slate-900 dark:bg-primary rounded-lg hover:bg-slate-800 dark:hover:bg-primary-dark transition-colors shadow-sm">
-                  Atualizar Senha
+
+                {/* Mensagem de Feedback Segurança */}
+                {securityMessage && (
+                  <div className={`p-3 rounded-lg flex items-center gap-2 ${securityMessage.type === 'success'
+                    ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                    : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
+                    }`}>
+                    <span className="material-symbols-outlined text-[18px]">
+                      {securityMessage.type === 'success' ? 'check_circle' : 'error'}
+                    </span>
+                    {securityMessage.text}
+                  </div>
+                )}
+
+                <button
+                  onClick={handleChangePassword}
+                  disabled={isChangingPass || !securityForm.currentPassword || !securityForm.newPassword}
+                  className="px-4 py-2 text-sm font-medium text-white bg-slate-900 dark:bg-primary rounded-lg hover:bg-slate-800 dark:hover:bg-primary-dark transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isChangingPass && (
+                    <span className="material-symbols-outlined text-[18px] animate-spin">sync</span>
+                  )}
+                  {isChangingPass ? 'Atualizando...' : 'Atualizar Senha'}
                 </button>
               </div>
 
@@ -381,7 +593,9 @@ const Settings = () => {
                       <span className="material-symbols-outlined text-emerald-500">computer</span>
                       <div>
                         <p className="text-sm font-medium text-slate-900 dark:text-white">Este dispositivo</p>
-                        <p className="text-xs text-slate-500">Chrome no macOS • Ativo agora</p>
+                        <p className="text-xs text-slate-500">
+                          {typeof navigator !== 'undefined' ? `${navigator.platform} • Browser` : 'Navegador Web'} • Ativo agora
+                        </p>
                       </div>
                     </div>
                     <span className="text-xs text-emerald-600 font-semibold bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded">Atual</span>

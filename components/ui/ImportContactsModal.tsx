@@ -2,12 +2,14 @@ import React, { useState, useCallback } from 'react';
 import { SmartDropzone } from './SmartDropzone';
 import { ImportResult, ParseProgress } from '../../hooks/useContacts';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './dialog';
+import { toast } from 'sonner';
 
 interface ImportContactsModalProps {
     isOpen: boolean;
     onClose: () => void;
     onFileSelect: (file: File) => Promise<ImportResult>;
     onConfirmImport: (categoryId?: string) => Promise<void>;
+    onAddCategory?: (name: string) => Promise<any>; // Nova prop
     importResult: ImportResult | null;
     parseProgress: ParseProgress | null;
     isLoading: boolean;
@@ -15,19 +17,12 @@ interface ImportContactsModalProps {
     categories?: { id: string; name: string }[];
 }
 
-/**
- * Modal de Importação de Contatos
- * 
- * Story 3.1 - Critérios de Aceite:
- * - Arrastar arquivo CSV/Excel para SmartDropzone
- * - Exibir resumo: "X contatos encontrados"
- * - Mostrar erros de formato com linhas problemáticas
- */
 export const ImportContactsModal: React.FC<ImportContactsModalProps> = ({
     isOpen,
     onClose,
     onFileSelect,
     onConfirmImport,
+    onAddCategory,
     importResult,
     parseProgress,
     isLoading,
@@ -36,6 +31,11 @@ export const ImportContactsModal: React.FC<ImportContactsModalProps> = ({
 }) => {
     const [selectedCategory, setSelectedCategory] = useState<string>('');
     const [showInvalid, setShowInvalid] = useState(false);
+
+    // Estados para criação inline de categoria
+    const [isAddingCategory, setIsAddingCategory] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState('');
+    const [isSavingCategory, setIsSavingCategory] = useState(false);
 
     const handleFileSelect = useCallback(async (file: File) => {
         try {
@@ -49,6 +49,26 @@ export const ImportContactsModal: React.FC<ImportContactsModalProps> = ({
         await onConfirmImport(selectedCategory || undefined);
         onClose();
     }, [onConfirmImport, selectedCategory, onClose]);
+
+    const handleSaveNewCategory = async () => {
+        if (!newCategoryName.trim() || !onAddCategory) return;
+
+        setIsSavingCategory(true);
+        try {
+            const newCat = await onAddCategory(newCategoryName);
+            if (newCat && newCat.id) {
+                setSelectedCategory(newCat.id);
+            }
+            setIsAddingCategory(false);
+            setNewCategoryName('');
+            toast.success(`Categoria "${newCategoryName}" criada!`);
+        } catch (error) {
+            console.error('Falha ao criar categoria:', error);
+            toast.error('Erro ao criar categoria.');
+        } finally {
+            setIsSavingCategory(false);
+        }
+    };
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -133,6 +153,10 @@ export const ImportContactsModal: React.FC<ImportContactsModalProps> = ({
                                         <span className="material-symbols-outlined text-primary text-lg">check_circle</span>
                                         Números serão automaticamente normalizados para o formato E.164
                                     </li>
+                                    <li className="flex items-start gap-2">
+                                        <span className="material-symbols-outlined text-primary text-lg">check_circle</span>
+                                        Suporta arquivos CSV e Excel (.xlsx, .xls)
+                                    </li>
                                 </ul>
                             </div>
                         </>
@@ -200,19 +224,66 @@ export const ImportContactsModal: React.FC<ImportContactsModalProps> = ({
                             {/* Category selection */}
                             {categories.length > 0 && (
                                 <div className="mb-6">
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
-                                        Categorizar como (opcional)
-                                    </label>
-                                    <select
-                                        value={selectedCategory}
-                                        onChange={(e) => setSelectedCategory(e.target.value)}
-                                        className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
-                                    >
-                                        <option value="">Nenhuma categoria</option>
-                                        {categories.map(cat => (
-                                            <option key={cat.id} value={cat.id}>{cat.name}</option>
-                                        ))}
-                                    </select>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+                                            Categorizar como (opcional)
+                                        </label>
+                                    </div>
+
+                                    {isAddingCategory ? (
+                                        <div className="flex gap-2 animate-in fade-in zoom-in-95">
+                                            <input
+                                                type="text"
+                                                value={newCategoryName}
+                                                onChange={(e) => setNewCategoryName(e.target.value)}
+                                                placeholder="Nome da categoria"
+                                                className="flex-1 px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
+                                                autoFocus
+                                            />
+                                            <button
+                                                onClick={handleSaveNewCategory}
+                                                disabled={isSavingCategory}
+                                                className="px-3 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50"
+                                                title="Salvar"
+                                            >
+                                                {isSavingCategory ? (
+                                                    <span className="material-symbols-outlined animate-spin">refresh</span>
+                                                ) : (
+                                                    <span className="material-symbols-outlined">check</span>
+                                                )}
+                                            </button>
+                                            <button
+                                                onClick={() => { setIsAddingCategory(false); setNewCategoryName(''); setSelectedCategory(''); }}
+                                                className="px-3 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                                                title="Cancelar"
+                                            >
+                                                <span className="material-symbols-outlined">close</span>
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <select
+                                            value={selectedCategory}
+                                            onChange={(e) => {
+                                                if (e.target.value === 'new_category_action') {
+                                                    setIsAddingCategory(true);
+                                                    setSelectedCategory('');
+                                                } else {
+                                                    setSelectedCategory(e.target.value);
+                                                }
+                                            }}
+                                            className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent appearance-none"
+                                        >
+                                            <option value="">Nenhuma categoria</option>
+                                            {categories.map(cat => (
+                                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                            ))}
+                                            {onAddCategory && (
+                                                <option value="new_category_action" className="font-semibold text-primary">
+                                                    + Nova Categoria
+                                                </option>
+                                            )}
+                                        </select>
+                                    )}
                                 </div>
                             )}
 

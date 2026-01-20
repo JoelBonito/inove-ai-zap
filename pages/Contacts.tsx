@@ -230,6 +230,7 @@ const Contacts = () => {
         onClose={handleCloseImportModal}
         onFileSelect={parseFile}
         onConfirmImport={confirmImport}
+        onAddCategory={(name) => addCategory(name)}
         importResult={importResult}
         parseProgress={parseProgress}
         isLoading={contactsLoading}
@@ -280,12 +281,33 @@ const Contacts = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Contatos', value: filteredContacts.length.toLocaleString('pt-BR') },
-          { label: 'Novos Leads (Mês)', value: '-', note: 'Em breve' },
-          { label: 'Clientes Ativos', value: '-', note: 'Em breve' },
-          { label: 'Opt-out / Bloqueios', value: '-', note: 'Em breve' },
-        ].map((stat, i) => (
+        {(() => {
+          // Calcula estatísticas reais
+          const newLeadsCount = contacts.filter(c => {
+            if (!c.createdAt) return false;
+            // Trata Timestamp do Firestore ou string ISO
+            const date = c.createdAt.toDate ? c.createdAt.toDate() : new Date(c.createdAt);
+            const now = new Date();
+            return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+          }).length;
+
+          const activeClientsCount = contacts.filter(c => c.lastCampaign).length;
+
+          const blockedCount = contacts.filter(c =>
+            c.tags.some(t => ['Bloqueado', 'Inativo', 'Opt-out', 'Optout'].includes(t)) ||
+            c.categoryIds?.some(id => {
+              const cat = categories.find(cat => cat.id === id);
+              return cat && ['Bloqueado', 'Inativo', 'Opt-out', 'Optout'].some(term => cat.name.includes(term));
+            })
+          ).length;
+
+          return [
+            { label: 'Total Contatos', value: filteredContacts.length.toLocaleString('pt-BR') },
+            { label: 'Novos Leads (Mês)', value: newLeadsCount.toLocaleString('pt-BR') },
+            { label: 'Clientes Ativos', value: activeClientsCount.toLocaleString('pt-BR'), note: 'Com campanhas' },
+            { label: 'Opt-out / Bloqueios', value: blockedCount.toLocaleString('pt-BR') },
+          ];
+        })().map((stat, i) => (
           <div
             key={i}
             className="bg-white dark:bg-surface-dark p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col"

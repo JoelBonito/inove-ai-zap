@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../lib/firebase';
 import { doc, onSnapshot, collection, query, orderBy, limit, Timestamp } from 'firebase/firestore';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
 
 interface Campaign {
     id: string;
@@ -34,8 +35,10 @@ export const CampaignDetails: React.FC = () => {
 
     const [campaign, setCampaign] = useState<Campaign | null>(null);
     const [logs, setLogs] = useState<SendLog[]>([]);
+
     const [isLoading, setIsLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'overview' | 'logs'>('overview');
+    const [selectedLog, setSelectedLog] = useState<SendLog | null>(null);
 
     // Subscribe to campaign updates
     useEffect(() => {
@@ -179,10 +182,10 @@ export const CampaignDetails: React.FC = () => {
                 <div className="relative h-4 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mb-4">
                     <div
                         className={`absolute inset-y-0 left-0 rounded-full transition-all duration-500 ${campaign.status === 'sending'
-                                ? 'bg-gradient-to-r from-blue-500 to-blue-400 animate-pulse'
-                                : campaign.status === 'completed'
-                                    ? 'bg-gradient-to-r from-emerald-500 to-emerald-400'
-                                    : 'bg-gradient-to-r from-amber-500 to-amber-400'
+                            ? 'bg-gradient-to-r from-blue-500 to-blue-400 animate-pulse'
+                            : campaign.status === 'completed'
+                                ? 'bg-gradient-to-r from-emerald-500 to-emerald-400'
+                                : 'bg-gradient-to-r from-amber-500 to-amber-400'
                             }`}
                         style={{ width: `${progress}%` }}
                     />
@@ -216,8 +219,8 @@ export const CampaignDetails: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('overview')}
                     className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'overview'
-                            ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
-                            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                        ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                         }`}
                 >
                     Visão Geral
@@ -225,8 +228,8 @@ export const CampaignDetails: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('logs')}
                     className={`px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${activeTab === 'logs'
-                            ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
-                            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                        ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                         }`}
                 >
                     Logs de Envio
@@ -266,13 +269,14 @@ export const CampaignDetails: React.FC = () => {
                             {logs.map((log) => (
                                 <div
                                     key={log.id}
-                                    className={`flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${log.status === 'failed' ? 'bg-red-50/50 dark:bg-red-900/10' : ''
+                                    onClick={() => setSelectedLog(log)}
+                                    className={`flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer ${log.status === 'failed' ? 'bg-red-50/50 dark:bg-red-900/10' : ''
                                         }`}
                                 >
                                     {/* Status Icon */}
                                     <div className={`p-2 rounded-full ${log.status === 'sent'
-                                            ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                            : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                                        ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                        : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
                                         }`}>
                                         <span className="material-symbols-outlined text-lg">
                                             {log.status === 'sent' ? 'check_circle' : 'error'}
@@ -309,6 +313,129 @@ export const CampaignDetails: React.FC = () => {
                     )}
                 </div>
             )}
+            {/* Dialog Log Detalhes - Redesign Premium */}
+            <Dialog open={!!selectedLog} onOpenChange={(open) => !open && setSelectedLog(null)}>
+                <DialogContent className="p-0 overflow-hidden max-w-md bg-white dark:bg-surface-dark border-0 shadow-2xl rounded-2xl">
+
+                    {/* Header Colorido */}
+                    <div className={`p-6 flex flex-col items-center justify-center text-center gap-3 ${selectedLog?.status === 'sent'
+                        ? 'bg-gradient-to-b from-emerald-50 to-white dark:from-emerald-900/20 dark:to-surface-dark'
+                        : 'bg-gradient-to-b from-red-50 to-white dark:from-red-900/20 dark:to-surface-dark'
+                        }`}>
+                        <div className={`size-16 rounded-full flex items-center justify-center shadow-sm mb-1 ${selectedLog?.status === 'sent'
+                            ? 'bg-emerald-100/80 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400'
+                            : 'bg-red-100/80 text-red-600 dark:bg-red-900/50 dark:text-red-400'
+                            }`}>
+                            <span className="material-symbols-outlined text-3xl">
+                                {selectedLog?.status === 'sent' ? 'check_circle' : 'warning'}
+                            </span>
+                        </div>
+
+                        <div>
+                            <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                                {selectedLog?.status === 'sent' ? 'Mensagem Enviada' : 'Falha no Envio'}
+                            </h2>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                                {selectedLog?.sentAt?.toDate?.()?.toLocaleString('pt-BR', {
+                                    dateStyle: 'full',
+                                    timeStyle: 'medium'
+                                }) || 'Data desconhecida'}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="px-6 pb-6 space-y-6">
+                        {/* Info Contato */}
+                        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 flex items-center gap-4 border border-slate-100 dark:border-slate-800">
+                            <div className="size-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 font-bold text-sm">
+                                {selectedLog?.contactName.substring(0, 2).toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-slate-900 dark:text-white truncate">
+                                    {selectedLog?.contactName}
+                                </p>
+                                <p className="text-sm text-slate-500 font-mono">
+                                    {selectedLog?.contactPhone}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Diagnóstico de Erro (Se houver falha) */}
+                        {selectedLog?.status === 'failed' && (
+                            <div className="space-y-3">
+                                <div className="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 rounded-xl p-4">
+                                    <div className="flex items-start gap-3">
+                                        <span className="material-symbols-outlined text-red-500 mt-0.5">
+                                            manage_search
+                                        </span>
+                                        <div>
+                                            <h4 className="font-semibold text-red-900 dark:text-red-300 text-sm">
+                                                Diagnóstico
+                                            </h4>
+                                            <p className="text-sm text-red-700 dark:text-red-400 mt-1">
+                                                {(() => {
+                                                    const err = (selectedLog.errorMessage || '').toLowerCase();
+                                                    if (err.includes('not on whatsapp') || err.includes('exists: false')) return 'Este número não possui uma conta de WhatsApp válida.';
+                                                    if (err.includes('timeout')) return 'O envio demorou muito e expirou. Pode ser instabilidade na conexão.';
+                                                    if (err.includes('disconnected') || err.includes('closed')) return 'A instância estava desconectada no momento do envio.';
+                                                    if (err.includes('invalid_jid') || err.includes('invalid jid')) return 'O formato do número (JID) está inválido.';
+                                                    if (err.includes('rate-limit') || err.includes('rate limit')) return 'Limite de envio excedido. O sistema aguardará antes de tentar novamente.';
+                                                    if (err.includes('block') || err.includes('spam')) return 'Possível bloqueio ou denúncia de spam detectado.';
+                                                    return 'Ocorreu um erro técnico não identificado durante o processamento.';
+                                                })()}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Erro Técnico (Expansível ou Pequeno) */}
+                                <div className="group">
+                                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                                        Log Técnico Original
+                                        <button
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(selectedLog.errorMessage || '');
+                                            }}
+                                            className="text-primary hover:text-primary-dark transition-colors flex items-center gap-1 text-[10px] normal-case bg-primary/10 px-2 py-0.5 rounded-full"
+                                        >
+                                            <span className="material-symbols-outlined text-[12px]">content_copy</span>
+                                            Copiar
+                                        </button>
+                                    </p>
+                                    <div className="bg-slate-100 dark:bg-slate-900 rounded-lg p-3 font-mono text-xs text-slate-600 dark:text-slate-400 break-all border border-slate-200 dark:border-slate-800 max-h-24 overflow-y-auto">
+                                        {selectedLog.errorMessage || 'Sem detalhes técnicos.'}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ID da Mensagem (Se sucesso) */}
+                        {selectedLog?.status === 'sent' && selectedLog.messageId && (
+                            <div>
+                                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                    ID da Transação
+                                </label>
+                                <p className="font-mono text-xs bg-slate-50 dark:bg-slate-800 p-2 rounded mt-1 text-slate-600 break-all border border-slate-100 dark:border-slate-700">
+                                    {selectedLog.messageId}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="bg-slate-50 dark:bg-slate-800/50 p-4 flex justify-between items-center border-t border-slate-100 dark:border-slate-800">
+                        <span className="text-xs text-slate-400 flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[14px]">info</span>
+                            ID: {selectedLog?.id.substring(0, 8)}...
+                        </span>
+                        <button
+                            onClick={() => setSelectedLog(null)}
+                            className="px-6 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-white rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 font-medium transition-colors shadow-sm"
+                        >
+                            Fechar Detalhes
+                        </button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

@@ -7,6 +7,7 @@ import { useUI } from '../hooks/useUI';
 import { useAuth } from '../hooks/useAuth';
 import { Sheet, SheetContent, SheetClose } from './ui/sheet';
 import { ThemeToggle } from './ThemeToggle';
+import { Toaster } from 'sonner';
 
 const navItems: NavItem[] = [
   {
@@ -312,6 +313,7 @@ export const Layout = () => {
           <Outlet />
         </div>
       </main>
+      <Toaster position="bottom-right" richColors closeButton />
     </div>
   );
 };

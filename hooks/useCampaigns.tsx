@@ -50,7 +50,11 @@ export function useCampaigns(): UseCampaignsReturn {
     const mapCampaign = (id: string, data: Record<string, unknown>): Campaign => {
         const createdAt = data.createdAt as { toDate?: () => Date } | undefined;
         const scheduledAt = data.scheduledAt as { toDate?: () => Date } | undefined;
-        const stats = data.stats as { total?: number; sent?: number } | undefined;
+        const stats = data.stats as { total?: number; sent?: number; failed?: number } | undefined;
+        const total = stats?.total || (data.total as number) || 0;
+        const sent = stats?.sent || 0;
+        const failed = stats?.failed || (data.failed as number) || 0;
+        const pending = Math.max(0, total - sent - failed);
 
         return {
             id,
@@ -60,8 +64,10 @@ export function useCampaigns(): UseCampaignsReturn {
                 ? createdAt.toDate().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
                 : 'N/A',
             progress: calculateProgress(stats),
-            total: stats?.total || (data.total as number) || 0,
-            sent: stats?.sent || 0,
+            total: total,
+            sent: sent,
+            failed: failed,
+            pending: pending,
             scheduledAt: scheduledAt?.toDate ? scheduledAt.toDate().toISOString() : undefined,
             pauseReason: data.pauseReason as Campaign['pauseReason'],
             targetCategoryIds: data.targetCategoryIds as string[] | undefined,

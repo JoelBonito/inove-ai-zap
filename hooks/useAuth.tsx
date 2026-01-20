@@ -28,9 +28,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {
-                const role: UserRole = 'owner';
+                let role: UserRole = 'owner';
+
+                // Busca role no Firestore
+                try {
+                    const { doc, getDoc, setDoc } = await import('firebase/firestore');
+                    const { db } = await import('../lib/firebase');
+
+                    const userDocRef = doc(db, 'users', firebaseUser.uid);
+                    const userSnap = await getDoc(userDocRef);
+
+                    if (userSnap.exists()) {
+                        role = userSnap.data().role as UserRole;
+                    } else {
+                        // Bootstrap: Se for o email do admin, define como admin
+                        if (firebaseUser.email === 'jbento1@gmail.com' || firebaseUser.email === 'inoveai.mcz@gmail.com') {
+                            role = 'admin';
+                        }
+
+                        // Cria documento básico se não existir
+                        await setDoc(userDocRef, {
+                            email: firebaseUser.email,
+                            displayName: firebaseUser.displayName,
+                            photoURL: firebaseUser.photoURL,
+                            role: role,
+                            createdAt: new Date().toISOString(),
+                        });
+                    }
+                } catch (error) {
+                    console.error("Erro ao buscar role:", error);
+                }
+
                 setUser({
                     id: firebaseUser.uid,
                     email: firebaseUser.email || '',
