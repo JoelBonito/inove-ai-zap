@@ -167,33 +167,17 @@ export function useInstanceStatus(): UseInstanceStatusReturn {
   }, [updateStatus, disconnect]);
 
   useEffect(() => {
-    if (!user?.id) {
-      console.log('[InstanceStatus] Sem user.id, pulando listener');
-      return;
-    }
-
-    console.log('[InstanceStatus] Iniciando listener para:', user.id);
+    if (!user?.id) return;
 
     // Escutar coleção 'instances' (onde os dados UAZAPI são salvos)
     const unsubscribe = onSnapshot(
       doc(db, 'instances', user.id),
       (snapshot) => {
-        console.log('[InstanceStatus] Snapshot recebido:', {
-          exists: snapshot.exists(),
-          id: snapshot.id,
-        });
-
         const data = snapshot.data();
-        console.log('[InstanceStatus] Dados do snapshot:', data);
-
-        if (!data) {
-          console.log('[InstanceStatus] Sem dados, retornando');
-          return;
-        }
+        if (!data) return;
 
         // Mapear campos do Firestore para o estado local
         const newStatus = (data.status as ConnectionStatus) || 'disconnected';
-        console.log('[InstanceStatus] Novo status:', newStatus);
 
         updateStatus(newStatus, {
           id: snapshot.id,
@@ -204,7 +188,7 @@ export function useInstanceStatus(): UseInstanceStatusReturn {
         });
       },
       (error) => {
-        console.error('[InstanceStatus] Erro no listener:', error);
+        console.error('Erro no listener da instância:', error);
       }
     );
 

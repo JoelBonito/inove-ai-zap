@@ -14,16 +14,6 @@ const firebaseConfig = {
     appId: (import.meta.env.VITE_FIREBASE_APP_ID || '').trim()
 };
 
-// Log de depuração para ambiente de produção
-if (true) {
-    console.log('[Firebase Config Check]', {
-        projectId: firebaseConfig.projectId || 'MISSING',
-        authDomain: firebaseConfig.authDomain || 'MISSING',
-        hasApiKey: !!firebaseConfig.apiKey,
-        env: import.meta.env.MODE
-    });
-}
-
 const app = initializeApp(firebaseConfig);
 export const functions = getFunctions(app, 'us-central1');
 export const db = getFirestore(app);
